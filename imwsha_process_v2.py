@@ -8,17 +8,17 @@
 ###################################################################
 
 # Start the download    
-# print('downloading dataset ...')
-# import requests
-# url = 'https://portals.au.edu.pk/imc/Content/dataset/IM-WSHA_Dataset.zip'
-# r = requests.get(url)
-# with open('IM-WSHA_Dataset.zip', 'wb') as outfile:
-#     outfile.write(r.content)
-# print('download completed')
+print('downloading dataset ...')
+import requests
+url = 'https://portals.au.edu.pk/imc/Content/dataset/IM-WSHA_Dataset.zip'
+r = requests.get(url)
+with open('IM-WSHA_Dataset.zip', 'wb') as outfile:
+    outfile.write(r.content)
+print('download completed')
 
-# import zipfile
-# with zipfile.ZipFile('./IM-WSHA_Dataset.zip', 'r') as zip_ref:
-#     zip_ref.extractall('./')
+import zipfile
+with zipfile.ZipFile('./IM-WSHA_Dataset.zip', 'r') as zip_ref:
+    zip_ref.extractall('./')
 
 ##################################################################
 # 2 ) Reproduce the paper results

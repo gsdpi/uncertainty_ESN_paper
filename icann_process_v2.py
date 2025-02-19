@@ -9,17 +9,17 @@
 ###################################################################
 
 # Start the download    
-# print('downloading dataset ...')
-# import requests
-# url = 'https://digibuo.uniovi.es/dspace/bitstream/handle/10651/53461/dataicann.zip?sequence=1&isAllowed=y'
-# r = requests.get(url)
-# with open('dataicann.zip', 'wb') as outfile:
-#     outfile.write(r.content)
-# print('download completed')
+print('downloading dataset ...')
+import requests
+url = 'https://digibuo.uniovi.es/dspace/bitstream/handle/10651/53461/dataicann.zip?sequence=1&isAllowed=y'
+r = requests.get(url)
+with open('dataicann.zip', 'wb') as outfile:
+    outfile.write(r.content)
+print('download completed')
 
-# import zipfile
-# with zipfile.ZipFile('./dataicann.zip', 'r') as zip_ref:
-#     zip_ref.extractall('./')
+import zipfile
+with zipfile.ZipFile('./dataicann.zip', 'r') as zip_ref:
+    zip_ref.extractall('./')
 
 ##################################################################
 # 2 ) Reproduce the paper results
