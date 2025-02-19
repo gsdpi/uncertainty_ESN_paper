@@ -169,3 +169,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Custom for this project
+/IM-WSHA_Dataset
+/IM-WSHA_Dataset.zip
+/dataicann.zip
+/dataicann
+/__MACOSX
