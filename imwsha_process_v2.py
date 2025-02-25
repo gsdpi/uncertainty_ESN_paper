@@ -37,11 +37,25 @@ from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 
 # For article graphics set font to 24 points
-plt.rcParams.update({'font.size': 24})
+plt.rcParams.update({'font.size': 18})
 
 # Read data for Subject 1 (change this to use any other subject data)
 df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
 #df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 3/3-imu-subject3.csv')
+
+
+# Normalize inputs
+# cols = df.columns.drop('activity_label')
+
+# p5 = df[cols].quantile(0.05)
+# p95 = df[cols].quantile(0.95)
+
+# # Normalize inputs to percentile 5 and 95
+# df_norm = df.copy()
+# df_norm[cols] = 2 * ((df[cols] - p5) / (p95 - p5)) - 1
+# #df_norm[cols] = df_norm[cols].clip(-1, 1)
+
+# df = df_norm
 
 # Correct the wrong labeling
 df.loc[1150:1375,'activity_label']=1
@@ -80,19 +94,31 @@ tm = 1/20.
 
 # Create the ESN and set hyperparameters -- THESE HAVE NOT BEEN OPTIMIZED IN ANY WAY
 from reservoirpy.nodes import Reservoir, Ridge, Input
+# n_states = 300
+# rho=0.95 
+# sparsity=0.01
+# Lr=0.025*2
+# Win_scale= 150
+# input_scale = 1
+# Warmup = 20
+# set_bias = True 
+# ridge=1e-7
+
 n_states = 300
-rho=0.95 
+rho=0.9977765104808194
 sparsity=0.01
-Lr=0.025*2
-Win_scale=150
+Lr=0.053814290145298004
+Win_scale=0.744831763674846
 input_scale = 1
 Warmup = 20
-set_bias = True 
+set_bias = True
+ridge = 4.6801882228427845e-08
+
 
 print('Creating ESN...')
 data = Input()
 reservoir = Reservoir(n_states, lr=Lr, sr=rho, input_scaling=input_scale, rc_connectivity=sparsity, Win=rpy.mat_gen.bernoulli(input_scaling = Win_scale))
-readout = Ridge(ridge=1e-7, input_bias = set_bias)
+readout = Ridge(ridge = ridge, input_bias = set_bias)
 esn_model =  data >> reservoir >> readout
 print(esn_model.node_names)
 
@@ -200,7 +226,7 @@ for i in transitions[transitions].index:
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
 
-for r in np.arange(1,15,1):
+for r in np.arange(1,25,1):
     # Estimate the PDF with the training set
     values = np.stack(C_pdf[:,0:r])
     bw = len(values)  ** (-1. / (r + 4)) # Scott's rule of thumb
@@ -226,7 +252,7 @@ for r in np.arange(1,15,1):
     fpr, tpr, thresholds = roc_curve(actual_labels, logprobX_exp)
     roc_auc = auc(fpr, tpr)
 
-    rocs_to_plot = [1,2,3,5,8,10]
+    rocs_to_plot = [1,2,3,5,8,10,16]
 
     if(r in rocs_to_plot):
         plt.figure(1)
@@ -241,6 +267,8 @@ for r in np.arange(1,15,1):
 
 
     from sklearn.metrics import recall_score, precision_score, f1_score
+    import matplotlib.ticker as ticker
+
     sensitivity = recall_score(actual_labels , logprobX_exp>th_optimal)
     specificity = recall_score(np.logical_not(actual_labels) , np.logical_not(logprobX_exp>th_optimal))
     precision  = precision_score(actual_labels, logprobX_exp>th_optimal)
@@ -283,6 +311,7 @@ for r in np.arange(1,15,1):
     ax=plt.gca()
     ax.set_xlim(0,t_adj[-1])
     ax.set_ylim(0,12)
+    ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
 
     plt.title('Estimated activity class')
     plt.xlabel('time (s)')
