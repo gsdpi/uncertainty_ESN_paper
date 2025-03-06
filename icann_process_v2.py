@@ -9,17 +9,17 @@
 ###################################################################
 
 # Start the download    
-# print('downloading dataset ...')
-# import requests
-# url = 'https://digibuo.uniovi.es/dspace/bitstream/handle/10651/53461/dataicann.zip?sequence=1&isAllowed=y'
-# r = requests.get(url)
-# with open('dataicann.zip', 'wb') as outfile:
-#     outfile.write(r.content)
-# print('download completed')
+print('downloading dataset ...')
+import requests
+url = 'https://digibuo.uniovi.es/dspace/bitstream/handle/10651/53461/dataicann.zip?sequence=1&isAllowed=y'
+r = requests.get(url)
+with open('dataicann.zip', 'wb') as outfile:
+    outfile.write(r.content)
+print('download completed')
 
-# import zipfile
-# with zipfile.ZipFile('./dataicann.zip', 'r') as zip_ref:
-#     zip_ref.extractall('./')
+import zipfile
+with zipfile.ZipFile('./dataicann.zip', 'r') as zip_ref:
+    zip_ref.extractall('./')
 
 ##################################################################
 # 2 ) Reproduce the paper results
@@ -65,20 +65,9 @@ Y_train = np.hstack(Y).reshape(-1,1)
 
 
 from reservoirpy.nodes import Reservoir, Ridge, Input
-# n_states = 300
-# rho=0.95 #1.1
-# sparsity=0.01
-# Lr=0.025*2
-# Win_scale=1#50
-# Wfb_scale=.0
-# input_scale = 1
-# Washout = 0
-# Warmup = 20 #100
-# set_bias = True # input_bias for the Ridge minimization, if true bias is added to inputs
-# ridge = 1e-7
 
 n_states = 300
-rho=1.270074061545781 #1.1
+rho=1.270074061545781 
 sparsity=0.01
 Lr=0.27031482024950293
 Win_scale=0.8696730804425951
@@ -100,33 +89,6 @@ print(esn_model.node_names)
 print('Training ESN...')
 esn_model = esn_model.fit(X_train, Y_train, warmup=Warmup)
 print(reservoir.is_initialized, readout.is_initialized, readout.fitted)
-
-# #plt.ion()
-# y_est = esn_model.run(X_test)
-# plt.figure()
-# plt.subplot(3,1,1)
-# plt.plot(X_test)
-# plt.subplot(3,1,2)
-# plt.plot(y_est)
-# plt.plot(Y_test)
-# plt.subplot(3,1,3)
-# plt.plot(Y_test-y_est)
-
-# # Resultados
-# X = []
-# train   = [7,8,0,1]
-# for i in range(len(train)):
-#     paq = d['z'][0][train[i]][:,1]
-#     X.append(paq)
-# x_test = np.hstack(X).reshape(-1,1)
-
-# y_est = esn_model.run(x_test)
-
-# plt.figure()
-# plt.subplot(2,1,1)
-# plt.plot(x_test)
-# plt.subplot(2,1,2)
-# plt.plot(y_est)
 
 
 #####################################################################
@@ -227,7 +189,7 @@ from sklearn.neighbors import KernelDensity
 
 for r in np.arange(1,21,1):
     values = np.stack(C_pdf[:,0:r])
-    bw = len(values)  ** (-1. / (r + 4)) # Silverman's rule of thumb
+    bw = len(values)  ** (-1. / (r + 4)) # Scott's rule of thumb
     kernel = KernelDensity(kernel='gaussian', bandwidth=bw).fit(values)
     logprobX = kernel.score_samples(C[:,0:r])
     logprobX_exp = np.kron(logprobX,np.ones(S))

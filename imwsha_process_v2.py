@@ -43,20 +43,6 @@ plt.rcParams.update({'font.size': 18})
 df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
 #df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 3/3-imu-subject3.csv')
 
-
-# Normalize inputs
-# cols = df.columns.drop('activity_label')
-
-# p5 = df[cols].quantile(0.05)
-# p95 = df[cols].quantile(0.95)
-
-# # Normalize inputs to percentile 5 and 95
-# df_norm = df.copy()
-# df_norm[cols] = 2 * ((df[cols] - p5) / (p95 - p5)) - 1
-# #df_norm[cols] = df_norm[cols].clip(-1, 1)
-
-# df = df_norm
-
 # Correct the wrong labeling
 df.loc[1150:1375,'activity_label']=1
 df.loc[2390:2510,'activity_label']=2
@@ -94,15 +80,6 @@ tm = 1/20.
 
 # Create the ESN and set hyperparameters -- THESE HAVE NOT BEEN OPTIMIZED IN ANY WAY
 from reservoirpy.nodes import Reservoir, Ridge, Input
-# n_states = 300
-# rho=0.95 
-# sparsity=0.01
-# Lr=0.025*2
-# Win_scale= 150
-# input_scale = 1
-# Warmup = 20
-# set_bias = True 
-# ridge=1e-7
 
 n_states = 300
 rho=0.9977765104808194
@@ -245,9 +222,7 @@ for r in np.arange(1,25,1):
     mask_ = mask[:len(logprobX_exp)]
     mask_transition_ = mask_transition[:len(logprobX_exp)]
     mask_ = mask_*(1-mask_transition_)
-    # mask_ = np.delete(mask_, mask_transition_==1)
-    # logprobX_exp = np.delete(logprobX_exp,mask_transition_==1)
-
+ 
     actual_labels = mask_
     fpr, tpr, thresholds = roc_curve(actual_labels, logprobX_exp)
     roc_auc = auc(fpr, tpr)
