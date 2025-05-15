@@ -237,13 +237,27 @@ for r in np.arange(1,21,1):
     plt.xlabel('time (s)')
     
     cc = np.array([1 if i>=th_optimal else 0 for i in logprobX_exp])
-    idx=np.where(cc==0)
-    plt.scatter(T_exp[idx],Y_exp[idx],c='red',marker='s', s=20)
-    idx=np.where(cc==1)
-    plt.scatter(T_exp[idx],Y_exp[idx],c='green',marker='s', s=20)
-    plt.plot(T_exp,Y_exp,alpha=0.5)
+
+    # Masks to decide colors
+    mask_green = cc == 0
+    mask_red = cc == 1
+
+    # Auxiliary function to plot the segments
+    def plot_segments(T, Y, mask, color):
+        Y_aux = Y.copy()
+        Y_aux[mask] = np.nan #  Asign NaN to the values we want to hide
+        plt.plot(T, Y_aux, color=color, alpha=0.8, linewidth=2)
+
+    # Plot segments with different colors
+    plot_segments(T_exp, Y_exp, mask_red, 'red')
+    plot_segments(T_exp, Y_exp, mask_green, 'green')
+
+    # gray line
+    plt.plot(T_exp, Y_exp, color='gray', alpha=0.3)
     plt.grid()
 
 
 plt.show()
+
+
 

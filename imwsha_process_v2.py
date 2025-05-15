@@ -7,15 +7,21 @@
 # You can also manually download and uncompress the data.
 ###################################################################
 
-# Start the download    
-print('downloading dataset ...')
-import requests
-url = 'https://portals.au.edu.pk/imc/Content/dataset/IM-WSHA_Dataset.zip'
-r = requests.get(url)
-with open('IM-WSHA_Dataset.zip', 'wb') as outfile:
-    outfile.write(r.content)
-print('download completed')
+from pathlib import Path
 
+file_path = Path('IM-WSHA_Dataset.zip')
+
+if not file_path.exists():   
+    # Start the download    
+    print('downloading dataset ...')
+    import requests
+    url = 'https://portals.au.edu.pk/imc/Content/dataset/IM-WSHA_Dataset.zip'
+    r = requests.get(url)
+    with open('IM-WSHA_Dataset.zip', 'wb') as outfile:
+        outfile.write(r.content)
+    print('download completed')
+else:
+    print('File already exists, skipping download.')
 import zipfile
 with zipfile.ZipFile('./IM-WSHA_Dataset.zip', 'r') as zip_ref:
     zip_ref.extractall('./')
@@ -276,11 +282,23 @@ for r in np.arange(1,25,1):
 
     plt.subplot(2,1,2)
     plt.plot(t_adj,Y_adj,label='Real')
-    plt.plot(t_adj,Y_out,color='black',label='Estimated',alpha=0.3)
-    idx=np.where(cc_exp==0)
-    plt.scatter(t_adj[idx],Y_out[idx],c='red',marker='s', s=20)
-    idx=np.where(cc_exp==1)
-    plt.scatter(t_adj[idx],Y_out[idx],c='green',marker='s', s=20)
+    
+    # Masks to decide colors
+    mask_green = cc_exp == 0
+    mask_red = cc_exp == 1
+
+    # Auxiliary function to plot the segments
+    def plot_segments(T, Y, mask, color):
+        Y_aux = Y.copy()[:mask.shape[0]]
+        Y_aux[mask] = np.nan #  Asign NaN to the values we want to hide
+        plt.plot(T[:mask.shape[0]], Y_aux, color=color, alpha=0.8, linewidth=2)
+
+    # Plot segments with different colors
+    plot_segments(t_adj, Y_out, mask_red, 'red')
+    plot_segments(t_adj, Y_out, mask_green, 'green')
+
+    # gray line
+    plt.plot(t_adj, Y_out, color='gray', alpha=0.3)
     plt.grid()
 
     ax=plt.gca()
@@ -291,6 +309,5 @@ for r in np.arange(1,25,1):
     plt.title('Estimated activity class')
     plt.xlabel('time (s)')
     plt.ylabel('activity class')
-
 
 plt.show()

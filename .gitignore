@@ -176,3 +176,6 @@ cython_debug/
 /dataicann.zip
 /dataicann
 /__MACOSX
+
+*.png
+
