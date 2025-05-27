@@ -1,8 +1,8 @@
 ---
 
-# Epistemic Uncertainty Assessment in Echo State Networks by Analysis of the Reservoir Dynamics
+# Can Reservoirs Sense the Shift: Out-of-Distribution Detection in Echo State Networks
 
-Epistemic uncertainty arises from regions of the input space where models lack exposure during training and may result in significant performance degradation in deployment. Echo State Networks are often used as virtual sensors or digital twins processing temporal input data, so their robustness against this type of degradation is crucial. This paper addresses this challenge by proposing a score comparing the similarity between the dynamic evolution of the reservoir in training and in inference. This research aims to enhance model confidence and adaptability in evolving conditions.
+Model uncertainty, arising from regions of the input distribution insufficiently represented during training, is known as *epistemic uncertainty* and can lead to significant performance degradation during deployment. This issue becomes especially critical in dynamic environments, where data distributions evolve over time, a phenomenon known as *domain shift*. Echo State Networks, widely used as soft sensors and for real-time edge applications, must maintain robustness under such conditions to ensure reliability and safety. This paper addresses these challenges by proposing a novel similarity score that quantifies the match between the dynamic evolution of the reservoir states during training and inference. By identifying deviations in reservoir behavior, the method provides an implicit indicator of epistemic uncertainty and potential out-of-distribution inputs. This approach enhances model confidence, interpretability, and adaptability in non-stationary scenarios, requiring no additional training and operating independently of model accuracy, making it lightweight and easily deployable.
 
 ## Authors
 
@@ -23,7 +23,7 @@ Contact us by email at [gsdpi@uniovi.es](mailto:gsdpi@uniovi.es)
 ## Description
 
 This repository contains the code used in the paper
-📄 *"Epistemic Uncertainty Assessment in Echo State Networks by Analysis of the Reservoir Dynamics"*.
+📄 *"Can Reservoirs Sense the Shift: Out-of-Distribution Detection in Echo State Networks"*.
 It provides the necessary scripts and data to **reproduce the results** presented in the study.
 
 ## Acknowledgment
