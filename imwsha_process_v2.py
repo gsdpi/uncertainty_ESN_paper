@@ -224,7 +224,7 @@ for r in np.arange(1,25,1):
 
     logprobX_exp = np.kron(logprobX,np.ones(S)) # expand the score to fit lengths
 
-    # Eliminar el mask transition de mask y logprobX
+    # Eliminate windows with transitions (this improves AUC slightly)
     mask_ = mask[:len(logprobX_exp)]
     mask_transition_ = mask_transition[:len(logprobX_exp)]
     mask_ = mask_*(1-mask_transition_)

@@ -184,7 +184,7 @@ def process_subject(df, features, subject_label='Subject', r_values=[8]):
         print(f'Uncertainty model training: {kde_time:.2f}s')
         print(f'Uncertainty evaluation: {eval_time:.2f}s')
         
-        # Calculate metrics (BEWARE: Windows between activities are NOT excluded here)
+        # Calculate metrics (WARNING: Windows between activities are NOT excluded here)
         mask = np.isin(df['activity_label'], train_activities).astype(int)
         mask_ = mask[:len(logprobX_exp)]
         
