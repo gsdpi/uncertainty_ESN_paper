@@ -59,7 +59,7 @@ df.loc[8400:8570,'activity_label']=7
 df.loc[9675:9825,'activity_label']=8
 df.loc[10900:11010,'activity_label']=9
 
-# Get all the available features (3 accelerometers, 3 signals each)
+# Get all the available features (27 signals from 3 IMUs)
 features = df.keys()[1:] 
 
 #####################################################################
