@@ -169,17 +169,22 @@ def process_subject(df, features, subject_label='Subject', r_values=[8]):
         kde_time = time.time() - start_time
         
         # Evaluate uncertainty
-        start_time = time.time()
-        logprobX_exp = evaluate_uncertainty_on_signal(
-            df=df,
-            features=features,
-            reservoir=GLOBAL_RESERVOIR,
-            kde_model=kde_model,
-            r=r,
-            window_length=WINDOW_LENGTH,
-            stride=STRIDE
-        )
-        eval_time = time.time() - start_time
+        if kde_model is None:
+            print('KDE model training failed (no valid windows), skipping uncertainty evaluation.')
+            logprobX_exp = np.zeros(Y_out.shape[0]//STRIDE) - 1
+            eval_time = 0
+        else:
+            start_time = time.time()
+            logprobX_exp = evaluate_uncertainty_on_signal(
+                df=df,
+                features=features,
+                reservoir=GLOBAL_RESERVOIR,
+                kde_model=kde_model,
+                r=r,
+                window_length=WINDOW_LENGTH,
+                stride=STRIDE
+            )
+            eval_time = time.time() - start_time
         
         print(f'Uncertainty model training: {kde_time:.2f}s')
         print(f'Uncertainty evaluation: {eval_time:.2f}s')
@@ -250,11 +255,16 @@ def process_subject(df, features, subject_label='Subject', r_values=[8]):
 # EXAMPLE USAGE
 ##################################################################
 
-if __name__ == '__main__':
-    
+def single_subject_example():
+    """
+    Example for processing a single subject with manual data cleaning.
+    """
     # Load and clean data (user does this manually)
     print('Loading data for Subject 1...')
     df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
+
+    # Remove rows with NaN activity_label
+    df = df.dropna(subset=['activity_label'])
     
     # User cleans the data here
     df.loc[1150:1375, 'activity_label'] = 1
@@ -271,11 +281,67 @@ if __name__ == '__main__':
     # Simple call to process
     process_subject(df, features, subject_label='Subject 1', r_values=[8])
     
-    # Can call again with different subject (ESN reused)
-    # process_subject(df2, features, subject_label='Subject 2')
-    
     print('\n' + '='*70)
     print('Processing completed')
     print('='*70)
     
     plt.show()
+
+
+def process_all_subjects():
+    """
+    Process all subjects in the IM-WSHA Dataset automatically.
+    Assumes data does not require manual cleaning.
+    """
+    import os
+    import glob
+    
+    dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
+    
+    # Find all subject directories
+    subject_dirs = sorted([d for d in os.listdir(dataset_path) 
+                          if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')])
+    
+    print(f'Found {len(subject_dirs)} subjects to process')
+    
+    for subject_dir in subject_dirs:
+        subject_path = os.path.join(dataset_path, subject_dir)
+        
+        # Find CSV file in subject directory
+        csv_files = glob.glob(os.path.join(subject_path, '*.csv'))
+        
+        if not csv_files:
+            print(f'\nWARNING: No CSV file found for {subject_dir}, skipping...')
+            continue
+        
+        csv_file = csv_files[0]  # Take first CSV file
+        
+        print(f'\nLoading data for {subject_dir} from {os.path.basename(csv_file)}...')
+        df = pd.read_csv(csv_file)
+        
+        # Remove rows with NaN activity_label
+        df = df.dropna(subset=['activity_label'])
+        
+        # Extract features (all columns except first which is typically activity_label)
+        features = df.keys()[1:].tolist()
+        # features = ['ax1', 'ay1', 'az1', 'ax2', 'ay2', 'az2', 'ax3', 'ay3', 'az3']
+        
+        # Process this subject
+        process_subject(df, features, subject_label=subject_dir, r_values=[8])
+    
+    print('\n' + '='*70)
+    print('All subjects processed')
+    print('='*70)
+    
+    plt.show()
+
+
+if __name__ == '__main__':
+    plt.ion()
+    # Choose which example to run:
+    
+    # Option 1: Process single subject with manual cleaning
+    # single_subject_example()
+    
+    # Option 2: Process all subjects automatically
+    process_all_subjects()

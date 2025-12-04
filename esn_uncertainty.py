@@ -120,6 +120,7 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
     print(f'Decomposing training data (window size {window_length}, stride {stride})...')
     rango_train = np.arange(0, Q_train - window_length, stride)
     
+    skipped_svd = 0
     for i in rango_train:
         idx = np.arange(i, i + window_length)
         
@@ -130,14 +131,28 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
             
         print(f"\rWindow {i} of {rango_train[-1]}", end='', flush=True)
         
-        # Perform SVD
-        U, s, VT = np.linalg.svd(states_train[idx, :].T, full_matrices=False)
-        # Add new high-dimensional point
-        C_pdf.append(s)
+        # Perform SVD with error handling
+        try:
+            # Check for NaN or Inf values
+            window_data = states_train[idx, :].T
+            if np.any(~np.isfinite(window_data)):
+                skipped_svd += 1
+                continue
+            
+            U, s, VT = np.linalg.svd(window_data, full_matrices=False)
+            # Add new high-dimensional point
+            C_pdf.append(s)
+        except np.linalg.LinAlgError:
+            # Skip windows where SVD fails to converge
+            skipped_svd += 1
+            continue
     
     C_pdf = np.array(C_pdf)
-    print(f'\nValid windows: {len(C_pdf)} (transitions excluded)')
+    print(f'\nValid windows: {len(C_pdf)} (transitions excluded, {skipped_svd} SVD failures skipped)')
     
+    if len(C_pdf) == 0:
+        return None
+        
     # Estimate PDF with KDE using first r singular values
     print(f'Estimating PDF with KDE (r={r})...')
     values = np.stack(C_pdf[:, 0:r])
@@ -188,14 +203,33 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     print(f'Decomposing all data (window size {window_length}, stride {stride})...')
     rango_all = np.arange(0, Q_all - window_length, stride)
     
+    skipped_svd = 0
     for i in rango_all:
         idx = np.arange(i, i + window_length)
         print(f"\rWindow {i} of {rango_all[-1]}", end='', flush=True)
-        U, s, VT = np.linalg.svd(states_all[idx, :].T, full_matrices=False)
-        C.append(s)
+        
+        try:
+            # Check for NaN or Inf values
+            window_data = states_all[idx, :].T
+            if np.any(~np.isfinite(window_data)):
+                # Use zeros for problematic windows
+                C.append(np.zeros(min(window_data.shape)))
+                skipped_svd += 1
+                continue
+            
+            U, s, VT = np.linalg.svd(window_data, full_matrices=False)
+            C.append(s)
+        except np.linalg.LinAlgError:
+            # Use zeros for windows where SVD fails
+            C.append(np.zeros(min(states_all[idx, :].T.shape)))
+            skipped_svd += 1
+            continue
     
     C = np.array(C)
-    print('\nDone.')
+    if skipped_svd > 0:
+        print(f'\nDone. ({skipped_svd} SVD failures handled)')
+    else:
+        print('\nDone.')
     
     # Evaluate all samples with kernel
     print('Evaluating log-probabilities...')
