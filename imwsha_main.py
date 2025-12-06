@@ -6,7 +6,8 @@
 import reservoirpy as rpy
 import time
 
-rpy.verbosity(0)
+# Removed in version v0.0.4
+# rpy.verbosity(0)
 rpy.set_seed(42)
 
 import numpy as np
@@ -16,6 +17,8 @@ import matplotlib.ticker as ticker
 
 from sklearn.metrics import roc_curve, auc, recall_score, precision_score, f1_score
 from reservoirpy.nodes import Reservoir, Ridge, Input
+
+from packaging.version import Version
 
 from esn_uncertainty import train_uncertainty_model, evaluate_uncertainty_on_signal, calc_metrics
 
@@ -70,11 +73,19 @@ def create_esn_model():
         rc_connectivity=SPARSITY,
         Win=rpy.mat_gen.bernoulli(input_scaling=WIN_SCALE)
     )
-    readout = Ridge(ridge=RIDGE, input_bias=SET_BIAS)
+
+    if( Version(rpy.__version__) >= Version("0.4")):
+        readout = Ridge(ridge=RIDGE, fit_bias=SET_BIAS)
+    else:
+        readout = rpy.nodes.Ridge(ridge=RIDGE, input_bias=SET_BIAS)
+
     esn_model = data >> reservoir >> readout
     
-    print(f'ESN created with nodes: {esn_model.node_names}')
-    
+    if( Version(rpy.__version__) < Version("0.4")):
+        print(f'ESN created with nodes: {esn_model.node_names}')
+    else:
+        print(f'ESN created with nodes: {esn_model.nodes}')
+        
     return esn_model
 
 

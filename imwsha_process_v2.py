@@ -31,8 +31,11 @@ with zipfile.ZipFile('./IM-WSHA_Dataset.zip', 'r') as zip_ref:
 ##################################################################
 
 import reservoirpy as rpy
+from packaging.version import Version
 
-rpy.verbosity(0)  # no need to be too verbose here
+if( Version(rpy.__version__) < Version("0.4")):
+    rpy.verbosity(0)  # no need to be too verbose here
+
 rpy.set_seed(42)  # make everyhting reproducible !
 
 import numpy as np
@@ -101,14 +104,24 @@ ridge = 4.6801882228427845e-08
 print('Creating ESN...')
 data = Input()
 reservoir = Reservoir(n_states, lr=Lr, sr=rho, input_scaling=input_scale, rc_connectivity=sparsity, Win=rpy.mat_gen.bernoulli(input_scaling = Win_scale))
-readout = Ridge(ridge = ridge, input_bias = set_bias)
+if(Version(rpy.__version__) < Version("0.4")):
+    readout = Ridge(ridge = ridge, input_bias = set_bias)
+else:
+    readout = Ridge(ridge = ridge, fit_bias = set_bias)
+
 esn_model =  data >> reservoir >> readout
-print(esn_model.node_names)
+if( Version(rpy.__version__) < Version("0.4")):
+    print(esn_model.node_names)
+else:
+    print(esn_model.nodes)
 
 # Train the ESN with the train data
 print('Training ESN...')
 esn_model = esn_model.fit(X_train, Y_train, warmup=Warmup)
-print(reservoir.is_initialized, readout.is_initialized, readout.fitted)
+if( Version(rpy.__version__) < Version("0.4")):
+    print(reservoir.is_initialized, readout.is_initialized, readout.fitted)
+else:
+    print(reservoir.initialized, readout.initialized)
 
 
 #####################################################################
