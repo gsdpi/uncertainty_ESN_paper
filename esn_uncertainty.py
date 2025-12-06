@@ -53,8 +53,9 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     return roc_auc, th_optimal
 
 
-def train_uncertainty_model(df_train, features, target_column, reservoir, r, window_length, 
-                             stride, train_activities, transition_window=None):
+def train_uncertainty_model(df_train, features, target_column, r, window_length, 
+                             stride, train_activities, reservoir=None, states_train=None,
+                             transition_window=None):
     """
     Train KDE model for epistemic uncertainty estimation from training data.
     Automatically excludes transition zones between activities.
@@ -67,8 +68,6 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
         List of column names to use as features
     target_column : str
         Name of the target column (e.g. 'activity_label')
-    reservoir : reservoirpy.nodes.Reservoir
-        Reservoir node of the trained ESN
     r : int
         Number of dimensions (singular values) to use for PDF
     window_length : int
@@ -77,6 +76,10 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
         Sliding window step (S)
     train_activities : array-like
         List or array with activity labels used for training
+    reservoir : reservoirpy.nodes.Reservoir, optional
+        Reservoir node of the ESN. Either reservoir or states_train must be provided.
+    states_train : numpy.ndarray, optional
+        Pre-computed reservoir states. Either reservoir or states_train must be provided.
     transition_window : int, optional
         Number of samples to exclude before and after each transition (default: window_length)
         
@@ -90,13 +93,17 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
     if transition_window is None:
         transition_window = window_length
     
-    # Extract training data
-    X_train = df_train[features].values.reshape(-1, len(features))
-    Y_train = df_train[target_column].values
-    
     # Calculate reservoir states for training data
-    print('Computing reservoir states for training data...')
-    states_train = reservoir.run(X_train)
+    if states_train is None:
+        if reservoir is None:
+            raise ValueError("Either 'reservoir' or 'states_train' must be provided")
+        X_train = df_train[features].values.reshape(-1, len(features))
+        print('Computing reservoir states for training data...')
+        states_train = reservoir.run(X_train)
+    else:
+        print('Using pre-computed reservoir states for training data...')
+    
+    Y_train = df_train[target_column].values
     
     # Create mask to exclude transitions
     mask_transition = np.zeros(len(df_train)).astype(bool)
@@ -152,7 +159,7 @@ def train_uncertainty_model(df_train, features, target_column, reservoir, r, win
     
     if len(C_pdf) == 0:
         return None
-        
+
     # Estimate PDF with KDE using first r singular values
     print(f'Estimating PDF with KDE (r={r})...')
     values = np.stack(C_pdf[:, 0:r])
