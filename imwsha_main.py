@@ -46,7 +46,7 @@ WINDOW_LENGTH = 140  # L
 STRIDE = 20  # S
 SAMPLING_PERIOD = 1 / 20.  # tm
 
-# Global model (trained once, reused for all subjects)
+# Global model (reused for all subjects)
 GLOBAL_ESN = None
 GLOBAL_RESERVOIR = None
 ESN_TRAINING_TIME = 0
@@ -85,7 +85,7 @@ def create_esn_model():
         print(f'ESN created with nodes: {esn_model.node_names}')
     else:
         print(f'ESN created with nodes: {esn_model.nodes}')
-        
+
     return esn_model
 
 
@@ -123,7 +123,7 @@ def train_esn_model(esn_model, df_train, features):
 
 
 def process_subject(df, features, esn_model, subject_label='Subject', 
-                    r_values=[8], train_readout=False, show_classification_plot=True,
+                    r_values=[8], train_readout=False,
                     show_roc_plot=False):
     """
     Process a single subject with ESN model.
@@ -143,8 +143,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
         List of r values for uncertainty evaluation. Default: [8]
     train_readout : bool, optional
         If True, trains the readout layer with this subject's data. Default: False
-    show_classification_plot : bool, optional
-        If True, shows the activity classification plot. Default: True
+        and shows classification plot.
     show_roc_plot : bool, optional
         If True, shows the ROC curve with AUC. Default: False
         
@@ -192,44 +191,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     t_adj = t[:Y_out.shape[0]]
     Y_adj = Y[:Y_out.shape[0]]
     
-    # Plot IMU signals and predictions if training readout
-    if train_readout:
-        plt.figure(figsize=(12, 8))
-        
-        # Subplot 1: IMU signals
-        plt.subplot(2, 1, 1)
-        plt.plot(t, X[:, 0:3] / np.max(np.abs(X[:, 0:3])) / 3)
-        plt.plot(t, X[:, 3:6] / np.max(np.abs(X[:, 3:6])) / 3 + 1)
-        plt.plot(t, X[:, 6:9] / np.max(np.abs(X[:, 6:9])) / 3 + 2)
-        plt.grid()
-        
-        ax = plt.gca()
-        ax.set_xlim(0, t_adj[-1])
-        ax.set_yticks([0, 1, 2])
-        ax.yaxis.set_ticklabels(["IMU1", "IMU2", "IMU3"])
-        plt.yticks(rotation=90)
-        
-        plt.title(f'{subject_label} - IMU Signals')
-        plt.ylabel('acceleration (normalized)')
-        
-        # Subplot 2: Predictions
-        plt.subplot(2, 1, 2)
-        plt.plot(t_adj, Y_adj, label='Real', linewidth=2)
-        plt.plot(t_adj, Y_out, label='Predicted', linewidth=2, alpha=0.7)
-        plt.grid()
-        plt.legend()
-        
-        ax = plt.gca()
-        ax.set_xlim(0, t_adj[-1])
-        ax.set_ylim(0, 12)
-        ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
-        
-        plt.title(f'{subject_label} - ESN Predictions')
-        plt.xlabel('time (s)')
-        plt.ylabel('activity class')
-        
-        plt.tight_layout()
-    
+   
     # Process uncertainty for each r value
     results = {}
     
@@ -325,7 +287,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             plt.show()
 
         # Plot classification results if requested
-        if show_classification_plot:
+        if train_readout:
             plt.figure(figsize=(12, 8))
             
             # Subplot 1: IMU signals
@@ -417,7 +379,6 @@ def single_subject_example(esn_model):
         subject_label='Subject 1',
         r_values=[8],
         train_readout=True,
-        show_classification_plot=True,
         show_roc_plot=True
     )
 
@@ -481,7 +442,6 @@ def process_all_subjects(esn_model):
             subject_label=subject_dir,
             r_values=[8],
             train_readout=False,
-            show_classification_plot=False
         )
 
         for r, metrics in results.items():
@@ -511,9 +471,9 @@ if __name__ == '__main__':
     esn_model = create_esn_model()
 
     # Opción 1: procesar un solo sujeto
-    # esn_model, _ = single_subject_example(esn_model)
+    #esn_model, _ = single_subject_example(esn_model)
 
-    # Opción 2: procesar todos los sujetos
+    # # Opción 2: procesar todos los sujetos
     all_results = process_all_subjects(esn_model)
 
     # Guardar resultados en Excel (filas=métricas, columnas=sujetos)
