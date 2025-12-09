@@ -167,14 +167,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     # Train readout if requested
     training_time = 0
     if train_readout:
-        print('Training readout layer with subject data...')
-        X_train = df_train[features].values.reshape(-1, len(features))
-        Y_train = df_train['activity_label'].values.reshape(-1, 1)
-        
-        start_time = time.time()
-        esn_model = esn_model.fit(X_train, Y_train, warmup=WARMUP)
-        training_time = time.time() - start_time
-        print(f'Readout training completed in {training_time:.2f} seconds')
+        esn_model, training_time = train_esn_model(esn_model, df_train, features)
     
     # Get reservoir from model (it's the second node in the pipeline)
     reservoir = esn_model.nodes[1]  # data >> reservoir >> readout
@@ -461,27 +454,27 @@ if __name__ == '__main__':
     esn_model = create_esn_model()
 
     # Option 1: process single subject
-    esn_model, _ = single_subject_example(esn_model)
+#    esn_model, _ = single_subject_example(esn_model)
 
-    # # Option 2: process all subjects
-    # all_results = process_all_subjects(esn_model)
+    # Option 2: process all subjects
+    all_results = process_all_subjects(esn_model)
 
-    # # Save results to Excel (rows=metrics, columns=subjects)
-    # metrics_order = [
-    #     'roc_auc',
-    #     'sensitivity',
-    #     'specificity',
-    #     'precision',
-    #     'f1_score',
-    #     'threshold',
-    #     'esn_training_time',
-    #     'kde_training_time',
-    #     'evaluation_time'
-    # ]
-    # df_results = pd.DataFrame(all_results)
-    # # Keep only metrics of interest and transpose
-    # df_metrics = df_results.set_index('subject')[metrics_order].T
-    # df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
-    # print('\nResults saved to results_imwsha.xlsx')
+    # Save results to Excel (rows=metrics, columns=subjects)
+    metrics_order = [
+        'roc_auc',
+        'sensitivity',
+        'specificity',
+        'precision',
+        'f1_score',
+        'threshold',
+        'esn_training_time',
+        'kde_training_time',
+        'evaluation_time'
+    ]
+    df_results = pd.DataFrame(all_results)
+    # Keep only metrics of interest and transpose
+    df_metrics = df_results.set_index('subject')[metrics_order].T
+    df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
+    print('\nResults saved to results_imwsha.xlsx')
 
     input('\nPress ENTER to close plots and exit...')
