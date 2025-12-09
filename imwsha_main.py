@@ -178,19 +178,6 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     
     # Get reservoir from model (it's the second node in the pipeline)
     reservoir = esn_model.nodes[1]  # data >> reservoir >> readout
-    
-    # Get predictions
-    print('\nRunning signals through ESN...')
-    X = df[features].values
-    Y = df['activity_label'].values
-    Y_out = esn_model.run(X)
-    Y_out = np.clip(Y_out, 0, 12)
-    
-    # Prepare time vector
-    t = np.arange(len(df)).reshape(-1, 1) * SAMPLING_PERIOD
-    t_adj = t[:Y_out.shape[0]]
-    Y_adj = Y[:Y_out.shape[0]]
-    
    
     # Process uncertainty for each r value
     results = {}
@@ -246,14 +233,39 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             mask_ = mask[:len(logprobX_exp)]
             
             actual_labels = mask_
-            roc_auc, th_optimal = calc_metrics(actual_labels, logprobX_exp, plot_roc=False)
+            metrics = calc_metrics(actual_labels, logprobX_exp, plot_roc=False)
             
-            # Calculate additional metrics
-            predicted_labels = (logprobX_exp > th_optimal).astype(int)
-            sensitivity = recall_score(actual_labels, predicted_labels, zero_division=0)
-            specificity = recall_score(1 - actual_labels, 1 - predicted_labels, zero_division=0)
-            precision = precision_score(actual_labels, predicted_labels, zero_division=0)
-            f1 = f1_score(actual_labels, predicted_labels, zero_division=0)
+            roc_auc = metrics['roc_auc']
+            th_optimal = metrics['threshold']
+            sensitivity = metrics['sensitivity']
+            specificity = metrics['specificity']
+            precision = metrics['precision']
+            f1 = metrics['f1_score']
+            
+            print(f'\nMetrics:')
+            print(f'  AUC: {roc_auc:.3f}')
+            print(f'  Optimal threshold: {th_optimal:.3f}')
+            print(f'  Sensitivity: {sensitivity:.3f}')
+            print(f'  Specificity: {specificity:.3f}')
+            print(f'  Precision: {precision:.3f}')
+            print(f'  F1-score: {f1:.3f}')
+
+            if show_roc_plot and kde_model is not None:
+                from sklearn.metrics import roc_curve, auc
+                fpr, tpr, _ = roc_curve(actual_labels, logprobX_exp)
+                roc_auc_plot = auc(fpr, tpr)
+                plt.figure(figsize=(6, 5))
+                plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc_plot:.3f})')
+                plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+                plt.xlim([0.0, 1.0])
+                plt.ylim([0.0, 1.05])
+                plt.xlabel('False Positive Rate')
+                plt.ylabel('True Positive Rate')
+                plt.title('Receiver Operating Characteristic')
+                plt.legend(loc='lower right')
+                plt.grid()
+                plt.tight_layout()
+                plt.show()
         
         # Store results
         results[r] = {
@@ -270,24 +282,20 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             'f1_score': f1
         }
 
-        # ROC plot (optional)
-        if show_roc_plot and kde_model is not None:
-            fpr, tpr, _ = roc_curve(actual_labels, logprobX_exp)
-            plt.figure(figsize=(6, 6))
-            plt.plot(fpr, tpr, label=f'AUC = {roc_auc:.3f}')
-            plt.plot([0, 1], [0, 1], 'k--', alpha=0.6)
-            plt.xlim([0, 1])
-            plt.ylim([0, 1.05])
-            plt.xlabel('False Positive Rate')
-            plt.ylabel('True Positive Rate')
-            plt.title(f'ROC - {subject_label} (r={r})')
-            plt.grid(True, alpha=0.3)
-            plt.legend()
-            plt.tight_layout()
-            plt.show()
-
         # Plot classification results if requested
         if train_readout:
+            # Get predictions
+            print('\nRunning signals through ESN...')
+            X = df[features].values
+            Y = df['activity_label'].values
+            Y_out = esn_model.run(X)
+            Y_out = np.clip(Y_out, 0, 12)
+            
+            # Prepare time vector
+            t = np.arange(len(df)).reshape(-1, 1) * SAMPLING_PERIOD
+            t_adj = t[:Y_out.shape[0]]
+            Y_adj = Y[:Y_out.shape[0]]
+    
             plt.figure(figsize=(12, 8))
             
             # Subplot 1: IMU signals
@@ -349,9 +357,9 @@ def process_subject(df, features, esn_model, subject_label='Subject',
 
 def single_subject_example(esn_model):
     """
-    Ejemplo para procesar un solo sujeto con limpieza manual.
+    Example for processing a single subject with manual data cleaning.
     """
-    print('Cargando datos del Subject 1...')
+    print('Loading data for Subject 1...')
     df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
     df = df.dropna(subset=['activity_label'])
 
@@ -366,14 +374,6 @@ def single_subject_example(esn_model):
 
     features = df.keys()[1:].tolist()
 
-    train_activities = np.arange(1, NT + 1)
-    df_train = pd.DataFrame()
-    for aa in train_activities:
-        df_tmp = df.loc[df['activity_label'] == aa]
-        df_train = pd.concat([df_train, df_tmp[300:-200]])
-
-    esn_model, training_time = train_esn_model(esn_model, df_train, features)
-
     results = process_subject(
         df, features, esn_model,
         subject_label='Subject 1',
@@ -383,7 +383,7 @@ def single_subject_example(esn_model):
     )
 
     print('\n' + '='*70)
-    print('RESULTADOS')
+    print('RESULTS')
     print('='*70)
     for r, metrics in results.items():
         print(f"\nr={r}:")
@@ -402,40 +402,30 @@ def single_subject_example(esn_model):
 
 def process_all_subjects(esn_model):
     """
-    Procesa todos los sujetos automáticamente.
-    El modelo ESN se crea fuera y se entrena con el primer sujeto.
+    Process all subjects automatically.
+    The ESN model is created outside and trained with the first subject.
     """
     import os, glob
 
     dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
     subject_dirs = sorted([d for d in os.listdir(dataset_path)
                            if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')])
-    print(f'Se encontraron {len(subject_dirs)} sujetos')
+    print(f'Found {len(subject_dirs)} subjects')
 
     all_results = []
-    first_subject = True
 
     for subject_dir in subject_dirs:
         subject_path = os.path.join(dataset_path, subject_dir)
         csv_files = glob.glob(os.path.join(subject_path, '*.csv'))
         if not csv_files:
-            print(f'\nAVISO: No hay CSV para {subject_dir}, se omite.')
+            print(f'\nWARNING: No CSV file found for {subject_dir}, skipping...')
             continue
 
         csv_file = csv_files[0]
-        print(f'\nCargando datos de {subject_dir} desde {os.path.basename(csv_file)}...')
+        print(f'\nLoading data for {subject_dir} from {os.path.basename(csv_file)}...')
         df = pd.read_csv(csv_file)
         df = df.dropna(subset=['activity_label'])
         features = df.keys()[1:].tolist()
-
-        if first_subject:
-            train_activities = np.arange(1, NT + 1)
-            df_train = pd.DataFrame()
-            for aa in train_activities:
-                df_tmp = df.loc[df['activity_label'] == aa]
-                df_train = pd.concat([df_train, df_tmp[300:-200]])
-            esn_model, _ = train_esn_model(esn_model, df_train, features)
-            first_subject = False
 
         results = process_subject(
             df, features, esn_model,
@@ -448,7 +438,7 @@ def process_all_subjects(esn_model):
             all_results.append(metrics)
 
     print('\n' + '='*70)
-    print('RESUMEN')
+    print('SUMMARY')
     print('='*70)
     for metrics in all_results:
         print(f"\n{metrics['subject']} (r={metrics['r']}):")
@@ -467,31 +457,31 @@ def process_all_subjects(esn_model):
 ##################################################################
 
 if __name__ == '__main__':
-    # Crear el modelo ESN una sola vez en main
+    # Create the ESN model once in main
     esn_model = create_esn_model()
 
-    # Opción 1: procesar un solo sujeto
-    #esn_model, _ = single_subject_example(esn_model)
+    # Option 1: process single subject
+    esn_model, _ = single_subject_example(esn_model)
 
-    # # Opción 2: procesar todos los sujetos
-    all_results = process_all_subjects(esn_model)
+    # # Option 2: process all subjects
+    # all_results = process_all_subjects(esn_model)
 
-    # Guardar resultados en Excel (filas=métricas, columnas=sujetos)
-    metrics_order = [
-        'roc_auc',
-        'sensitivity',
-        'specificity',
-        'precision',
-        'f1_score',
-        'threshold',
-        'esn_training_time',
-        'kde_training_time',
-        'evaluation_time'
-    ]
-    df_results = pd.DataFrame(all_results)
-    # Nos quedamos solo con las métricas de interés y transponemos
-    df_metrics = df_results.set_index('subject')[metrics_order].T
-    df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
-    print('\nResultados guardados en results_imwsha.xlsx')
+    # # Save results to Excel (rows=metrics, columns=subjects)
+    # metrics_order = [
+    #     'roc_auc',
+    #     'sensitivity',
+    #     'specificity',
+    #     'precision',
+    #     'f1_score',
+    #     'threshold',
+    #     'esn_training_time',
+    #     'kde_training_time',
+    #     'evaluation_time'
+    # ]
+    # df_results = pd.DataFrame(all_results)
+    # # Keep only metrics of interest and transpose
+    # df_metrics = df_results.set_index('subject')[metrics_order].T
+    # df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
+    # print('\nResults saved to results_imwsha.xlsx')
 
-    input('\nPulsa ENTER para cerrar los gráficos y salir...')
+    input('\nPress ENTER to close plots and exit...')

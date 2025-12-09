@@ -7,6 +7,7 @@ from sklearn.neighbors import KernelDensity
 def calc_metrics(actual_labels, scores, plot_roc=False):
     """
     Calculate and print metrics for binary classification, optionally plot ROC curve.
+    
     Parameters
     ----------
     actual_labels : array-like
@@ -15,6 +16,17 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
         Model scores (e.g., log-probabilities or probabilities)
     plot_roc : bool, optional
         If True, plot ROC curve. Default: False
+        
+    Returns
+    -------
+    metrics : dict
+        Dictionary containing all calculated metrics:
+        - roc_auc: Area under ROC curve
+        - threshold: Optimal threshold (maximizes TPR - FPR)
+        - sensitivity: True positive rate
+        - specificity: True negative rate
+        - precision: Positive predictive value
+        - f1_score: F1 score
     """
     from sklearn.metrics import roc_curve, auc, recall_score, precision_score, f1_score
     import matplotlib.pyplot as plt
@@ -23,34 +35,24 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     roc_auc = auc(fpr, tpr)
     th_optimal = thresholds[np.argmax(tpr - fpr)]
 
-    sensitivity = recall_score(actual_labels, scores > th_optimal)
-    specificity = recall_score(np.logical_not(actual_labels),
-                              np.logical_not(scores > th_optimal))
-    precision = precision_score(actual_labels, scores > th_optimal)
-    f1 = f1_score(actual_labels, scores > th_optimal)
+    # Create predicted labels based on optimal threshold
+    predicted_labels = (scores > th_optimal).astype(int)
+    
+    # Calculate metrics
+    sensitivity = recall_score(actual_labels, predicted_labels, zero_division=0)
+    specificity = recall_score(1 - actual_labels, 1 - predicted_labels, zero_division=0)
+    precision = precision_score(actual_labels, predicted_labels, zero_division=0)
+    f1 = f1_score(actual_labels, predicted_labels, zero_division=0)
 
-    print(f'\nMetrics:')
-    print(f'  AUC: {roc_auc:.3f}')
-    print(f'  Optimal threshold: {th_optimal:.3f}')
-    print(f'  Sensitivity: {sensitivity:.3f}')
-    print(f'  Specificity: {specificity:.3f}')
-    print(f'  Precision: {precision:.3f}')
-    print(f'  F1-score: {f1:.3f}')
-
-    if plot_roc:
-        plt.figure(figsize=(6, 5))
-        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc:.3f})')
-        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
-        plt.xlim([0.0, 1.0])
-        plt.ylim([0.0, 1.05])
-        plt.xlabel('False Positive Rate')
-        plt.ylabel('True Positive Rate')
-        plt.title('Receiver Operating Characteristic')
-        plt.legend(loc='lower right')
-        plt.grid()
-        plt.tight_layout()
-        plt.show()
-    return roc_auc, th_optimal
+    # Return all metrics as dictionary
+    return {
+        'roc_auc': roc_auc,
+        'threshold': th_optimal,
+        'sensitivity': sensitivity,
+        'specificity': specificity,
+        'precision': precision,
+        'f1_score': f1
+    }
 
 
 def train_uncertainty_model(df_train, features, target_column, r, window_length, 
