@@ -162,7 +162,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     df_train = pd.DataFrame()
     for aa in train_activities:
         df_tmp = df.loc[df['activity_label'] == aa]
-        df_train = pd.concat([df_train, df_tmp[300:-200]])
+        df_train = pd.concat([df_train, df_tmp[150:-150]])
     
     # Train readout if requested
     training_time = 0
@@ -348,6 +348,234 @@ def process_subject(df, features, esn_model, subject_label='Subject',
 # EXAMPLE USAGE
 ##################################################################
 
+
+##################################################################
+# DATA CLEANING
+##################################################################
+
+# Cleaning specifications for each subject
+SUBJECT_CLEANING = {
+    'Subject 1': [
+        (0, 190, 12),
+        (1150, 1340, 1),
+        (1340, 1580, 12),
+        (1580, 2500, 2),
+        (2500, 2680, 12),
+        (2680, 3725, 3),
+        (3725, 3950, 12),
+        (4800, 5085, 12),
+        (6000, 6130, 5),
+        (6130, 6280, 12),
+        (6280, 7285, 6),
+        (7285, 7358, 12),
+        (7358, 8500, 7),
+        (8500, 8590, 12),
+        (8590, 9745, 8),
+        (9745, 9945, 12),
+        (10900, 10807, 9),
+        (10807, 10938, 12),
+        (11810, 11940, 12),
+        #(11815, 12100, 12),
+    ],
+    'Subject 2': [
+        (0, 200, 12),
+        (1200, 1400, 12),
+        (2400, 2550, 12),
+        (3500, 3650, 3),
+        (3650, 3850, 12),
+        (3850, 4800, 4),
+        (4800, 4950, 12),
+        (4950, 6030, 5),
+        (6030, 6150, 12),
+        (6150, 7230, 6),
+        (7230, 7300, 12),
+        (7300, 8400, 7),
+        (8400, 8500, 12),
+        (8500, 9620, 8),
+        (9620, 9800, 12),
+        (9800, 10850, 9),
+        (10850, 10930, 12),
+        (10930, 11890, 10),
+        (11890, 12080, 12),
+        (12080, 12400, 11),
+    ],
+    'Subject 3': [
+        (0, 200, 12),
+        (1190, 1370, 12),
+        (2385, 2600, 12),
+        (3500, 3740, 3),
+        (3740, 3790, 12),
+        (4800, 5020, 12),
+        (5020, 6000, 5),
+        (6000, 6150, 12),
+        (6150, 7170, 6),
+        (7170, 7250, 12),
+        (7250, 8350, 7),
+        (8350, 8450, 12),
+        (8450, 9650, 8),
+        (9650, 9710, 12),
+        (9710, 10800, 9),
+        (10800, 10875, 12),
+        (10875, 11820, 10),
+        (11820, 11900, 12),
+        (11900, 12000, 11),
+    ],
+    'Subject 4': [
+        (0, 200, 12),
+        (1200, 1400, 12),
+        (2400, 2500, 12),
+        (3200, 3700, 3),
+        (3700, 3850, 12),
+        (4800, 5000, 12),
+        (5000, 6000, 5),
+        (6000, 6150, 12),
+        (6150, 7200, 6),
+        (7200, 7300, 12),
+        (7300, 8450, 7),
+        (8450, 8510, 12),
+        (8510, 9630, 8),
+        (9630, 9750, 12),
+        (9750, 10820, 9),
+        (10820, 10935, 12),
+        (10935, 11820, 10),
+        (11820, 11940, 12),
+        (11940, 12500, 11),
+    ],
+    'Subject 5': [
+        (0, 200, 12),
+        (200, 1200, 1),
+        (1200, 1500, 12),
+        (2380, 2550, 12),
+        (2550, 3715, 3),
+        (3715, 4000, 12),
+        (4765, 5100, 12),
+        (6000, 6150, 12),
+        (7200, 7300, 12),
+        (8500, 8590, 12),
+        (9600, 9765, 12),
+        (10800, 10890, 12),
+        (10890, 11400, 10),
+        (11750, 11850, 12),
+        (11850, -1, 11),  # -1 represents end of dataframe
+    ],
+    'Subject 6': [
+        (0, 200, 12),
+        (1218, 1470, 12),
+        (2390, 2530, 12),
+        (3000, 3630, 3),
+        (3630, 3800, 12),
+        (4800, 5015, 12),
+        (6050, 6200, 12),
+        (7200, 7325, 12),
+        (8400, 8485, 12),
+        (8485, 9000, 8),
+        (9650, 9770, 12),
+        (10825, 10970, 12),
+        (10970, 11500, 10),
+        (11630, 11700, 12),
+        (11700, 12300, 11),
+    ],
+    'Subject 7': [
+        (0, 220, 12),
+        (220, 1260, 1),
+        (1260, 1430, 12),
+        (2450, 2560, 12),
+        (3000, 3690, 3),
+        (3690, 3850, 12),
+        (4810, 5050, 12),
+        (6050, 6150, 12),
+        (7220, 7350, 12),
+        (8420, 8550, 12),
+        (9650, 9720, 12),
+        (10850, 11000, 12),
+        (11000, 11500, 10),
+        (11700, 11800, 12),
+        (11800, 12300, 11),
+    ],
+    'Subject 8': [
+        (0, 200, 12),
+        (1250, 1460, 12),
+        (2440, 2660, 12),
+        (2660, 3700, 3),
+        (3690, 4050, 12),
+        (4850, 5200, 12),
+        (6040, 6300, 12),
+        (7250, 7330, 12),
+        (8450, 8590, 12),
+        (8590, 9760, 8),
+        (9760, 9850, 12),
+        (10900, 11000, 12),
+        (11000, 11650, 10),
+        (11650, 11750, 12),
+        (11750, -1, 11),
+    ],
+    'Subject 9': [
+        (0, 200, 12),
+        (900, 1200, 1),
+        (1200, 1500, 12),
+        (2100, 2390, 2),
+        (2390, 2560, 12),
+        (3000, 3615, 3),
+        (3615, 3880, 12),
+        (4800, 5100, 12),
+        (6000, 6150, 12),
+        (7225, 7350, 12),
+        (8320, 8506, 12),
+        (9680, 9800, 12),
+        (10830, 10930, 12),
+        (10930, 11603, 10),
+        (11603, 11656, 12),
+        (11656, 12300, 11),
+    ],
+    'Subject 10': [
+        (0, 200, 12),
+        (1200, 1440, 12),
+        (2380, 2600, 12),
+        (2600, 3600, 3),
+        (3600, 3950, 12),
+        (4800, 5150, 12),
+        (6000, 6240, 12),
+        (7220, 7440, 12),
+        (8360, 8505, 12),
+        (9620, 9810, 12),
+        (10800, 10965, 12),
+        (11630, 11700, 12),
+        (11700, -1, 11),
+    ],
+}
+
+
+def clean_subject_data(df, subject_label):
+    """
+    Clean activity labels for a specific subject based on predefined ranges.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        DataFrame with activity data to clean
+    subject_label : str
+        Subject identifier (e.g., 'Subject 1')
+        
+    Returns
+    -------
+    df : pandas.DataFrame
+        Cleaned dataframe with corrected activity labels
+    """
+    if subject_label not in SUBJECT_CLEANING:
+        print(f'WARNING: No cleaning rules found for {subject_label}, returning unchanged data.')
+        return df
+    
+    print(f'Cleaning activity labels for {subject_label}...')
+    cleaning_rules = SUBJECT_CLEANING[subject_label]
+    
+    for start, end, label in cleaning_rules:
+        if end == -1:
+            end = len(df) - 1
+        df.loc[start:end, 'activity_label'] = label
+    
+    print(f'Cleaning completed for {subject_label}')
+    return df
+
 def single_subject_example(esn_model):
     """
     Example for processing a single subject with manual data cleaning.
@@ -356,14 +584,15 @@ def single_subject_example(esn_model):
     df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
     df = df.dropna(subset=['activity_label'])
 
-    df.loc[1150:1375, 'activity_label'] = 1
-    df.loc[2390:2510, 'activity_label'] = 2
-    df.loc[3300:3840, 'activity_label'] = 3
-    df.loc[6000:6300, 'activity_label'] = 5
-    df.loc[7200:7340, 'activity_label'] = 6
-    df.loc[8400:8570, 'activity_label'] = 7
-    df.loc[9675:9825, 'activity_label'] = 8
-    df.loc[10900:11010, 'activity_label'] = 9
+    # df.loc[1150:1375, 'activity_label'] = 1
+    # df.loc[2390:2510, 'activity_label'] = 2
+    # df.loc[3300:3840, 'activity_label'] = 3
+    # df.loc[6000:6300, 'activity_label'] = 5
+    # df.loc[7200:7340, 'activity_label'] = 6
+    # df.loc[8400:8570, 'activity_label'] = 7
+    # df.loc[9675:9825, 'activity_label'] = 8
+    # df.loc[10900:11010, 'activity_label'] = 9
+    df = clean_subject_data(df, 'Subject 1')
 
     features = df.keys()[1:].tolist()
 
@@ -393,6 +622,7 @@ def single_subject_example(esn_model):
     return esn_model, results
 
 
+
 def process_all_subjects(esn_model):
     """
     Process all subjects automatically.
@@ -418,6 +648,10 @@ def process_all_subjects(esn_model):
         print(f'\nLoading data for {subject_dir} from {os.path.basename(csv_file)}...')
         df = pd.read_csv(csv_file)
         df = df.dropna(subset=['activity_label'])
+        
+        # Clean subject-specific data
+        df = clean_subject_data(df, subject_dir)
+        
         features = df.keys()[1:].tolist()
 
         results = process_subject(
@@ -454,7 +688,7 @@ if __name__ == '__main__':
     esn_model = create_esn_model()
 
     # Option 1: process single subject
-#    esn_model, _ = single_subject_example(esn_model)
+    esn_model, _ = single_subject_example(esn_model)
 
     # Option 2: process all subjects
     all_results = process_all_subjects(esn_model)
