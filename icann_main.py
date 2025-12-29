@@ -1,8 +1,7 @@
 ##################################################################
-# Main script for IM-WSHA dataset processing with ESN
+# Main script for DATAICANN dataset processing with ESN
 # and epistemic uncertainty estimation
 ##################################################################
-
 import reservoirpy as rpy
 import time
 import os
@@ -27,31 +26,30 @@ from esn_uncertainty import train_uncertainty_model, evaluate_uncertainty_on_sig
 plt.rcParams.update({'font.size': 18})
 
 ##################################################################
-# GLOBAL PARAMETERS (Fixed across all subjects)
+# GLOBAL PARAMETERS (Fixed across all cases)
 ##################################################################
 
 # ESN hyperparameters
 N_STATES = 300
-RHO = 0.9977765104808194
+RHO = 0.99 #1.270074061545781 
 SPARSITY = 0.01
-LR = 0.053814290145298004
-WIN_SCALE = 0.744831763674846
+LR = 0.27031482024950293
+WIN_SCALE = 0.8696730804425951
 INPUT_SCALE = 1
 WARMUP = 20
 SET_BIAS = True
-RIDGE = 4.6801882228427845e-08
+RIDGE = 5.530826061879047e-08
 
+# Windowing parameters
+WINDOW_LENGTH = 1000
+STRIDE = 200   
+SAMPLING_PERIOD = 1 / 5000.
 
-# IM-WSHA utilities (loading, cleaning, features, splits)
-from imwsha_utils import (
-    NT, WINDOW_LENGTH, STRIDE, SAMPLING_PERIOD,
-    load_subject_df, get_features, get_train_activities, prepare_train_df
-)
-
-# Global model (reused for all subjects)
+# Global model (reused for all cases)
 GLOBAL_ESN = None
 GLOBAL_RESERVOIR = None
 ESN_TRAINING_TIME = 0
+
 
 ##################################################################
 # UTILITY FUNCTIONS (ESN and metrics)
@@ -90,8 +88,7 @@ def create_esn_model():
 
     return esn_model
 
-
-def train_esn_model(esn_model, df_train, features):
+def train_esn_model(esn_model, df_train, features, target_column='resistance'):
     """
     Train ESN model with training data.
     
@@ -112,60 +109,38 @@ def train_esn_model(esn_model, df_train, features):
         Training time in seconds
     """
     X_train = df_train[features].values.reshape(-1, len(features))
-    Y_train = df_train['activity_label'].values.reshape(-1, 1)
-    
+    Y_train = df_train[target_column].values.reshape(-1, 1)
+
     print('Training ESN...')
     start_time = time.time()
-    esn_model = esn_model.fit(X_train, Y_train, warmup=WARMUP)
+    esn_model.fit(X_train, Y_train, warmup=WARMUP)
     training_time = time.time() - start_time
-    
+   
     print(f'ESN training completed in {training_time:.2f} seconds')
     
     return esn_model, training_time
 
 
-def process_subject(df, features, esn_model, subject_label='Subject', 
-                    r_values=[8], train_readout=False,
-                    show_roc_plot=False):
-    """
-    Process a single subject with ESN model.
-    Generates results and plots.
-    
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        Cleaned dataframe with all data
-    features : list
-        List of feature column names
-    esn_model : reservoirpy model
-        Pre-trained ESN model (can be retrained if train_readout=True)
-    subject_label : str, optional
-        Label for plots (e.g., 'Subject 1', 'Patient A'). Default: 'Subject'
-    r_values : list, optional
-        List of r values for uncertainty evaluation. Default: [8]
-    train_readout : bool, optional
-        If True, trains the readout layer with this subject's data. Default: False
-        and shows classification plot.
-    show_roc_plot : bool, optional
-        If True, shows the ROC curve with AUC. Default: False
-        
-    Returns
-    -------
-    results : dict
-        Dictionary containing metrics and timing information for each r value
-    """
+def process_vibration(df, esn_model, features, r_values=[20], train_readout=False,
+                    show_roc_plot=False, target='resistance'):
+
+
     print(f'\n{"="*70}')
-    print(f'PROCESSING: {subject_label}')
+    print(f'PROCESSING ACCELEROMETER: {features}')
     print(f'{"="*70}\n')
     
-    # Prepare training data using shared utilities
-    train_activities = get_train_activities()
-    df_train = prepare_train_df(df, train_activities, trim=150)
-    
+    train_activities   = [2,6,3,4,5]
+    df_train_parts = []
+    for exp_id in train_activities:
+        df_exp = df[df['experiment'] == exp_id]
+        df_train_parts.append(df_exp.head(10000))
+    df_train = pd.concat(df_train_parts, ignore_index=True)
+
     # Train readout if requested
     training_time = 0
     if train_readout:
-        esn_model, training_time = train_esn_model(esn_model, df_train, features)
+        esn_model, training_time = train_esn_model(esn_model, df_train, features, target)
+
     
     # Get reservoir from model (it's the second node in the pipeline)
     reservoir = esn_model.nodes[1]  # data >> reservoir >> readout
@@ -182,10 +157,12 @@ def process_subject(df, features, esn_model, subject_label='Subject',
         
         # Train uncertainty model
         start_time = time.time()
+        #esn_model.run(df_train['ax'].values.reshape(-1,1))  # Warm-up reservoir
+        
         kde_model = train_uncertainty_model(
             df_train=df_train,
             features=features,
-            target_column='activity_label',
+            target_column='resistance',
             r=r,
             window_length=WINDOW_LENGTH,
             stride=STRIDE,
@@ -220,7 +197,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             eval_time = time.time() - start_time
             
             # Calculate metrics
-            mask = np.isin(df['activity_label'], train_activities).astype(int)
+            mask = np.isin(df['experiment'], train_activities+[7,8]).astype(int)
             mask_ = mask[:len(logprobX_exp)]
             
             actual_labels = mask_
@@ -260,7 +237,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
         
         # Store results
         results[r] = {
-            'subject': subject_label,
+            'features': features,
             'r': r,
             'esn_training_time': training_time,
             'kde_training_time': kde_time,
@@ -278,10 +255,9 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             # Get predictions
             print('\nRunning signals through ESN...')
             X = df[features].values
-            Y = df['activity_label'].values
+            Y = df[target].values
             Y_out = esn_model.run(X)
-            Y_out = np.clip(Y_out, 0, 12)
-            
+                        
             # Prepare time vector
             t = np.arange(len(df)).reshape(-1, 1) * SAMPLING_PERIOD
             t_adj = t[:Y_out.shape[0]]
@@ -289,23 +265,25 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     
             plt.figure(figsize=(12, 8))
             
-            # Subplot 1: IMU signals
+            # Subplot 1: acceleration signals
             plt.subplot(2, 1, 1)
-            plt.plot(t, X[:, 0:3] / np.max(np.abs(X[:, 0:3])) / 3)
-            plt.plot(t, X[:, 3:6] / np.max(np.abs(X[:, 3:6])) / 3 + 1)
-            plt.plot(t, X[:, 6:9] / np.max(np.abs(X[:, 6:9])) / 3 + 2)
+            n_features = X.shape[1]
+            colors = ['C0', 'C1', 'C2']
+            for j in range(n_features):
+                offset = j * 1.0
+                plt.plot(t, X[:, j] / np.max(np.abs(X[:, j])) / 3 + offset, color=colors[j % len(colors)])
             plt.grid()
             
             ax = plt.gca()
             ax.set_xlim(0, t_adj[-1])
-            ax.set_yticks([0, 1, 2])
-            ax.yaxis.set_ticklabels(["IMU1", "IMU2", "IMU3"])
+            ax.set_yticks(np.arange(n_features))
+            ax.yaxis.set_ticklabels(features[:n_features])
             plt.yticks(rotation=90)
             
-            plt.title(f'{subject_label} - IMU Signals')
-            plt.ylabel('acceleration (normalized)')
+            plt.title('Acceleration Signals')
+            plt.ylabel('acceleration (g)')
             
-            # Subplot 2: Activity classification
+            # Subplot 2: Resistance
             plt.subplot(2, 1, 2)
             
             cc = np.array([1 if i > th_optimal else 0 for i in
@@ -329,12 +307,11 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             
             ax = plt.gca()
             ax.set_xlim(0, t_adj[-1])
-            ax.set_ylim(0, 12)
             ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
             
-            plt.title(f'{subject_label} - Activity Classification (r={r}, AUC={roc_auc:.3f})')
+            plt.title(f'{target} - Resistance estimation (r={r}, AUC={roc_auc:.3f})')
             plt.xlabel('time (s)')
-            plt.ylabel('activity class')
+            plt.ylabel('resistance (ohms)')
             
             plt.tight_layout()
             plt.show()
@@ -342,83 +319,6 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     return results
 
 
-##################################################################
-# EXAMPLE USAGE
-##################################################################
-
-
-def single_subject_example(esn_model):
-    """
-    Example for processing a single subject using shared loading/cleaning utilities.
-    """
-    dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
-    print('Loading data for Subject 1...')
-    df = load_subject_df(dataset_path, 'Subject 1')
-    features = get_features(df)
-
-    results = process_subject(
-        df, features, esn_model,
-        subject_label='Subject 1',
-        r_values=[8],
-        train_readout=True,
-        show_roc_plot=True
-    )
-
-    print('\n' + '='*70)
-    print('RESULTS')
-    print('='*70)
-    for r, metrics in results.items():
-        print(f"\nr={r}:")
-        print(f"  ESN training time: {metrics['esn_training_time']:.2f}s")
-        print(f"  KDE training time: {metrics['kde_training_time']:.2f}s")
-        print(f"  Evaluation time: {metrics['evaluation_time']:.2f}s")
-        print(f"  ROC AUC: {metrics['roc_auc']:.4f}")
-        print(f"  Optimal threshold: {metrics['threshold']:.4f}")
-        print(f"  Sensitivity: {metrics['sensitivity']:.3f}")
-        print(f"  Specificity: {metrics['specificity']:.3f}")
-        print(f"  Precision: {metrics['precision']:.3f}")
-        print(f"  F1-score: {metrics['f1_score']:.3f}")
-
-    return esn_model, results
-
-
-
-def process_all_subjects(esn_model):
-    """
-    Process all subjects automatically using IM-WSHA utilities.
-    """
-    dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
-    subject_dirs = sorted([d for d in os.listdir(dataset_path)
-                           if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')])
-    print(f'Found {len(subject_dirs)} subjects')
-    all_results = []
-    for subject_dir in subject_dirs:
-        print(f'\nLoading data for {subject_dir}...')
-        try:
-            df = load_subject_df(dataset_path, subject_dir)
-        except Exception as e:
-            print(f'  ERROR: {e}')
-            continue
-        features = get_features(df)
-        results = process_subject(
-            df, features, esn_model,
-            subject_label=subject_dir,
-            r_values=[8],
-            train_readout=False,
-        )
-        for r, metrics in results.items():
-            all_results.append(metrics)
-    print('\n' + '='*70)
-    print('SUMMARY')
-    print('='*70)
-    for metrics in all_results:
-        print(f"\n{metrics['subject']} (r={metrics['r']}):")
-        print(f"  ROC AUC: {metrics['roc_auc']:.4f}")
-        print(f"  Sensitivity: {metrics['sensitivity']:.3f}")
-        print(f"  Specificity: {metrics['specificity']:.3f}")
-        print(f"  Precision: {metrics['precision']:.3f}")
-        print(f"  F1-score: {metrics['f1_score']:.3f}")
-    return all_results
 
 
 ##################################################################
@@ -426,31 +326,61 @@ def process_all_subjects(esn_model):
 ##################################################################
 
 if __name__ == '__main__':
+    from scipy.io import loadmat
+
+    # Read data
+    PATH = './dataicann/'
+    d = loadmat(PATH+'dataicann.mat')
+
+    # Create dataframe with all signals
+    ohm     = [0, 5, 10, 15, 20] + [np.nan, np.nan, np.nan, np.nan]
+    exp   = [2, 6, 3, 4, 5] + [7, 8, 0, 1]
+    X = []
+    Y = []
+    X_label = []
+
+    for i in range(len(exp)):
+        paq = d['z'][0][exp[i]]
+        X.append(paq)
+        Y.append(np.repeat(float(ohm[i]), paq.shape[0]))
+        X_label.append(np.repeat(exp[i], paq.shape[0]))
+
+    X = np.vstack(X)
+    Y = np.vstack([np.array(y, dtype=float).reshape(-1, 1) for y in Y])
+    X_label = np.vstack([np.array(xl, dtype=int).reshape(-1, 1) for xl in X_label])
+    df = pd.DataFrame(X, columns=["ac", "ax", "ay", "ir", "is"])
+    df.insert(0, 'experiment', X_label.flatten())
+    df['resistance'] = Y.flatten()
+
     # Create the ESN model once in main
     esn_model = create_esn_model()
+    process_vibration(df,esn_model,['ax'],train_readout=True,show_roc_plot=True)
 
     # Option 1: process single subject
-    esn_model, _ = single_subject_example(esn_model)
+    #esn_model, _ = single_subject_example(esn_model)
 
-    # Option 2: process all subjects
-    all_results = process_all_subjects(esn_model)
+    # # Option 2: process all subjects
+    # all_results = process_all_subjects(esn_model)
 
-    # Save results to Excel (rows=metrics, columns=subjects)
-    metrics_order = [
-        'roc_auc',
-        'sensitivity',
-        'specificity',
-        'precision',
-        'f1_score',
-        'threshold',
-        'esn_training_time',
-        'kde_training_time',
-        'evaluation_time'
-    ]
-    df_results = pd.DataFrame(all_results)
-    # Keep only metrics of interest and transpose
-    df_metrics = df_results.set_index('subject')[metrics_order].T
-    df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
-    print('\nResults saved to results_imwsha.xlsx')
+    # # Save results to Excel (rows=metrics, columns=subjects)
+    # metrics_order = [
+    #     'roc_auc',
+    #     'sensitivity',
+    #     'specificity',
+    #     'precision',
+    #     'f1_score',
+    #     'threshold',
+    #     'esn_training_time',
+    #     'kde_training_time',
+    #     'evaluation_time'
+    # ]
+    # df_results = pd.DataFrame(all_results)
+    # # Keep only metrics of interest and transpose
+    # df_metrics = df_results.set_index('experiment')[metrics_order].T
+    # df_metrics.to_excel('results_icann.xlsx', sheet_name='metrics')
+    # print('\nResults saved to results_icann.xlsx')
 
     input('\nPress ENTER to close plots and exit...')
+
+
+

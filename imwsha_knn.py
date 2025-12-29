@@ -9,15 +9,25 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 import os
-import glob
 
 # Import KNN detector from test-knn.py
 import sys
 sys.path.insert(0, os.path.dirname(__file__))
 from sklearn.neighbors import NearestNeighbors
 
-# Import utilities
+# Shared utilities
 from esn_uncertainty import calc_metrics
+from imwsha_utils import (
+    NT,
+    WINDOW_LENGTH,
+    STRIDE,
+    SAMPLING_PERIOD,
+    clean_subject_data,
+    load_subject_df,
+    get_features,
+    get_train_activities,
+    prepare_train_df,
+)
 
 # Figure configuration
 plt.rcParams.update({'font.size': 18})
@@ -25,12 +35,6 @@ plt.rcParams.update({'font.size': 18})
 ##################################################################
 # GLOBAL PARAMETERS
 ##################################################################
-
-# Processing parameters
-NT = 7  # number of activities to train
-WINDOW_LENGTH = 140  # L
-STRIDE = 20  # S
-SAMPLING_PERIOD = 1 / 20.  # tm
 
 # KNN parameters
 N_NEIGHBORS = 10
@@ -185,268 +189,6 @@ class KNNAnomalyDetector:
         return scores
 
 
-##################################################################
-# SUBJECT CLEANING RULES (from imwsha_main.py)
-##################################################################
-
-SUBJECT_CLEANING = {
-    'Subject 1': [
-        (0, 200, 12),
-        (1150, 1375, 1),
-        (2390, 2510, 2),
-        (3300, 3840, 3),
-        (3840, 4000, 12),
-        (4000, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6050, 5),
-        (6050, 6300, 12),
-        (6300, 7350, 6),
-        (7350, 7500, 12),
-        (7500, 8500, 7),
-        (8500, 8700, 12),
-        (8700, 9700, 8),
-        (9700, 9850, 12),
-        (9850, 10950, 9),
-        (10950, 11050, 12),
-        (11050, 12000, 10),
-        (12000, 12100, 12),
-        (12100, 12600, 11),
-    ],
-    'Subject 2': [
-        (0, 200, 12),
-        (1200, 1400, 12),
-        (2400, 2550, 12),
-        (3500, 3650, 3),
-        (3650, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7230, 6),
-        (7230, 7300, 12),
-        (7300, 8400, 7),
-        (8400, 8500, 12),
-        (8500, 9620, 8),
-        (9620, 9800, 12),
-        (9800, 10850, 9),
-        (10850, 10930, 12),
-        (10930, 11890, 10),
-        (11890, 12080, 12),
-        (12080, 12400, 11),
-    ],
-    'Subject 3': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3500, 3740, 3),
-        (3740, 3790, 12),
-        (4800, 5020, 12),
-        (5020, 6000, 5),
-        (6000, 6150, 12),
-        (6150, 7170, 6),
-        (7170, 7250, 12),
-        (7250, 8350, 7),
-        (8350, 8450, 12),
-        (8450, 9650, 8),
-        (9650, 9710, 12),
-        (9710, 10800, 9),
-        (10800, 10875, 12),
-        (10875, 11820, 10),
-        (11820, 11900, 12),
-        (11900, 12000, 11),
-    ],
-    'Subject 4': [
-        (0, 200, 12),
-        (1200, 1400, 12),
-        (2400, 2500, 12),
-        (3200, 3700, 3),
-        (3700, 3850, 12),
-        (4800, 5000, 12),
-        (5000, 6000, 5),
-        (6000, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8450, 7),
-        (8450, 8510, 12),
-        (8510, 9630, 8),
-        (9630, 9750, 12),
-        (9750, 10820, 9),
-        (10820, 10935, 12),
-        (10935, 11820, 10),
-        (11820, 11940, 12),
-        (11940, 12500, 11),
-    ],
-    'Subject 5': [
-        (0, 200, 12),
-        (200, 1200, 1),
-        (1200, 1500, 12),
-        (2380, 2550, 12),
-        (2550, 3715, 3),
-        (3715, 4000, 12),
-        (4000, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6000, 5),
-        (6000, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8500, 7),
-        (8500, 8650, 12),
-        (8650, 9750, 8),
-        (9750, 9860, 12),
-        (9860, 10950, 9),
-        (10950, 11050, 12),
-        (11050, 12000, 10),
-        (12000, 12100, 12),
-        (12100, 12500, 11),
-    ],
-    'Subject 6': [
-        (0, 200, 12),
-        (1200, 1400, 12),
-        (2400, 2550, 12),
-        (3500, 3700, 3),
-        (3700, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7350, 12),
-        (7350, 8450, 7),
-        (8450, 8550, 12),
-        (8550, 9700, 8),
-        (9700, 9800, 12),
-        (9800, 10900, 9),
-        (10900, 11000, 12),
-        (11000, 11900, 10),
-        (11900, 12050, 12),
-        (12050, 12500, 11),
-    ],
-    'Subject 7': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3600, 3850, 3),
-        (3850, 4000, 12),
-        (4000, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7350, 12),
-        (7350, 8500, 7),
-        (8500, 8600, 12),
-        (8600, 9700, 8),
-        (9700, 9850, 12),
-        (9850, 10950, 9),
-        (10950, 11050, 12),
-        (11050, 12000, 10),
-        (12000, 12100, 12),
-        (12100, 12500, 11),
-    ],
-    'Subject 8': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3500, 3740, 3),
-        (3740, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8450, 7),
-        (8450, 8550, 12),
-        (8550, 9650, 8),
-        (9650, 9750, 12),
-        (9750, 10850, 9),
-        (10850, 10950, 12),
-        (10950, 11900, 10),
-        (11900, 12050, 12),
-        (12050, 12500, 11),
-    ],
-    'Subject 9': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3500, 3740, 3),
-        (3740, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8450, 7),
-        (8450, 8550, 12),
-        (8550, 9650, 8),
-        (9650, 9750, 12),
-        (9750, 10850, 9),
-        (10850, 10950, 12),
-        (10950, 11900, 10),
-        (11900, 12050, 12),
-        (12050, 12500, 11),
-    ],
-    'Subject 10': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3500, 3740, 3),
-        (3740, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8450, 7),
-        (8450, 8550, 12),
-        (8550, 9650, 8),
-        (9650, 9750, 12),
-        (9750, 10850, 9),
-        (10850, 10950, 12),
-        (10950, 11900, 10),
-        (11900, 12050, 12),
-        (12050, 12500, 11),
-    ],
-}
-
-##################################################################
-# UTILITY FUNCTIONS
-##################################################################
-
-def clean_subject_data(df, subject_label):
-    """
-    Clean activity labels for a specific subject based on predefined ranges.
-    
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame with activity data to clean
-    subject_label : str
-        Subject identifier (e.g., 'Subject 1')
-        
-    Returns
-    -------
-    df : pandas.DataFrame
-        Cleaned dataframe with corrected activity labels
-    """
-    if subject_label not in SUBJECT_CLEANING:
-        print(f'WARNING: No cleaning rules found for {subject_label}, returning unchanged data.')
-        return df
-    
-    print(f'Cleaning activity labels for {subject_label}...')
-    cleaning_rules = SUBJECT_CLEANING[subject_label]
-    
-    for start, end, label in cleaning_rules:
-        if end == -1:
-            end = len(df) - 1
-        df.loc[start:end, 'activity_label'] = label
-    
-    print(f'Cleaning completed for {subject_label}')
-    return df
-
-
 def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     """
     Process a single subject using KNN anomaly detection.
@@ -471,14 +213,8 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     print(f'PROCESSING: {subject_label}')
     print(f'{"="*70}\n')
     
-    # Prepare training data (activities 1-NT)
-    train_activities = np.arange(1, NT + 1)
-    
-    df_train = pd.DataFrame()
-    for aa in train_activities:
-        df_tmp = df.loc[df['activity_label'] == aa]
-        # Trim 150 samples from start and end
-        df_train = pd.concat([df_train, df_tmp[150:-150]])
+    train_activities = get_train_activities()
+    df_train = prepare_train_df(df, train_activities, trim=150)
     
     # Extract features as numpy arrays
     X_train = df_train[features].values
@@ -576,29 +312,16 @@ def process_all_subjects_knn():
     Process all subjects using KNN anomaly detection.
     """
     dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
-    subject_dirs = sorted([d for d in os.listdir(dataset_path)
-                           if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')])
+    subject_dirs = sorted(
+        [d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')]
+    )
     print(f'Found {len(subject_dirs)} subjects')
 
     all_results = []
 
     for subject_dir in subject_dirs:
-        subject_path = os.path.join(dataset_path, subject_dir)
-        csv_files = glob.glob(os.path.join(subject_path, '*.csv'))
-        if not csv_files:
-            print(f'\nWARNING: No CSV file found for {subject_dir}, skipping...')
-            continue
-
-        csv_file = csv_files[0]
-        print(f'\nLoading data for {subject_dir} from {os.path.basename(csv_file)}...')
-        df = pd.read_csv(csv_file)
-        df = df.dropna(subset=['activity_label'])
-
-        # Clean data
-        df = clean_subject_data(df, subject_dir)
-
-        # Extract features (all columns except activity_label)
-        features = [col for col in df.columns if col != 'activity_label']
+        df = load_subject_df(dataset_path, subject_dir)
+        features = get_features(df)
 
         # Process subject
         results = process_subject_knn(
