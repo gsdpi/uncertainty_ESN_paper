@@ -1,19 +1,18 @@
 ##################################################################
-# Main script for IM-WSHA dataset processing with KNN
+# Main script for IM-WSHA dataset processing with PCA
 # anomaly detection (no ESN reservoir)
 ##################################################################
 
 import time
+from typing import Union
+
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 import os
 
-# Import KNN detector from test-knn.py
-import sys
-sys.path.insert(0, os.path.dirname(__file__))
-from sklearn.neighbors import NearestNeighbors
+from sklearn.decomposition import PCA
 
 # Shared utilities
 from esn_uncertainty import calc_metrics
@@ -36,13 +35,12 @@ plt.rcParams.update({'font.size': 18})
 # GLOBAL PARAMETERS
 ##################################################################
 
-# KNN parameters
-N_NEIGHBORS = 10
-KNN_METRIC = "euclidean"
-SCORE_REDUCTION = "mean"  # 'mean', 'max', 'median'
+# PCA parameters
+N_COMPONENTS = 0.95  # keep 95% variance or set explicit component count
+SCORE_TYPE = "reconstruction_error"
 
 ##################################################################
-# KNN HELPER FUNCTIONS
+# PCA HELPER FUNCTIONS
 ##################################################################
 
 def window_signal(X: np.ndarray, window_size: int, stride: int) -> np.ndarray:
@@ -91,62 +89,32 @@ def vectorize_windows(windows: np.ndarray) -> np.ndarray:
     return windows.reshape(windows.shape[0], -1)
 
 
-def knn_score(distances: np.ndarray, reduction: str = "mean") -> np.ndarray:
-    """
-    Reduce KNN distances to an anomaly score.
-
-    Parameters
-    ----------
-    distances : ndarray, shape (N, k)
-    reduction : {'mean', 'max', 'median'}
-
-    Returns
-    -------
-    scores : ndarray, shape (N,)
-    """
-    if reduction == "mean":
-        return distances.mean(axis=1)
-    elif reduction == "max":
-        return distances.max(axis=1)
-    elif reduction == "median":
-        return np.median(distances, axis=1)
-    else:
-        raise ValueError(f"Unsupported reduction: {reduction}")
-
-
 ##################################################################
-# KNN ANOMALY DETECTOR
+# PCA ANOMALY DETECTOR
 ##################################################################
 
-class KNNAnomalyDetector:
+class PCAAnomalyDetector:
     """
-    KNN-based anomaly detector for multichannel time series.
+    PCA-based anomaly detector for multichannel time series.
     """
 
     def __init__(
         self,
-        n_neighbors: int = 5,
-        metric: str = "euclidean",
+        n_components: Union[float, int] = 0.95,
         window_size: int = 50,
         stride: int = 1,
-        score_reduction: str = "mean",
-        transition_window: int = None
+        score_type: str = "reconstruction_error"
     ):
-        self.n_neighbors = n_neighbors
-        self.metric = metric
+        self.n_components = n_components
         self.window_size = window_size
         self.stride = stride
-        self.score_reduction = score_reduction
-        self.transition_window = transition_window if transition_window is not None else window_size
+        self.score_type = score_type
 
-        self.knn = NearestNeighbors(
-            n_neighbors=self.n_neighbors,
-            metric=self.metric
-        )
+        self.pca = PCA(n_components=self.n_components)
 
     def fit(self, X_train: np.ndarray):
         """
-        Fit the KNN model using normal (training) data.
+        Fit the PCA model using normal (training) data.
 
         Parameters
         ----------
@@ -160,8 +128,8 @@ class KNNAnomalyDetector:
         )
         print(f'Generated {windows.shape[0]} training windows')
         X_vec = vectorize_windows(windows)
-        self.knn.fit(X_vec)
-        print('KNN model fitted.')
+        self.pca.fit(X_vec)
+        print('PCA model fitted.')
         return self
 
     def score(self, X: np.ndarray) -> np.ndarray:
@@ -184,14 +152,20 @@ class KNNAnomalyDetector:
         )
         X_vec = vectorize_windows(windows)
 
-        distances, _ = self.knn.kneighbors(X_vec)
-        scores = knn_score(distances, self.score_reduction)
+        X_proj = self.pca.transform(X_vec)
+        X_rec = self.pca.inverse_transform(X_proj)
+
+        if self.score_type == "reconstruction_error":
+            scores = np.linalg.norm(X_vec - X_rec, axis=1)
+        else:
+            raise ValueError(f"Unsupported score_type: {self.score_type}")
+
         return scores
 
 
-def process_subject_knn(df, features, subject_label, show_roc_plot=False):
+def process_subject_pca(df, features, subject_label, show_roc_plot=False):
     """
-    Process a single subject using KNN anomaly detection.
+    Process a single subject using PCA anomaly detection.
     
     Parameters
     ----------
@@ -223,22 +197,20 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     print(f'Training data shape: {X_train.shape}')
     print(f'Full data shape: {X_full.shape}')
     
-    # Train KNN model
-    print('\nTraining KNN anomaly detector...')
+    # Train PCA model
+    print('\nTraining PCA anomaly detector...')
     start_time = time.time()
     
-    detector = KNNAnomalyDetector(
-        n_neighbors=N_NEIGHBORS,
+    detector = PCAAnomalyDetector(
+        n_components=N_COMPONENTS,
         window_size=WINDOW_LENGTH,
         stride=STRIDE,
-        metric=KNN_METRIC,
-        score_reduction=SCORE_REDUCTION,
-        transition_window=WINDOW_LENGTH
+        score_type=SCORE_TYPE
     )
     
     detector.fit(X_train)
-    knn_time = time.time() - start_time
-    print(f'KNN training completed in {knn_time:.3f} seconds')
+    pca_time = time.time() - start_time
+    print(f'PCA training completed in {pca_time:.3f} seconds')
     
     # Evaluate on full signal
     print('\nEvaluating on full signal...')
@@ -255,13 +227,10 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     mask = np.isin(df['activity_label'], train_activities).astype(int)
     mask_ = mask[:len(scores_exp)]
 
-    # For KNN, higher score = more anomalous, so we need to invert for calc_metrics
-    # which expects higher values for the positive class (train activities)
+    # Higher score = more anomalous, invert for calc_metrics which expects
+    # higher scores for the positive (train) class
     scores_inverted = -scores_exp
     metrics = calc_metrics(mask_, scores_inverted, plot_roc=False)
-    # plt.plot(scores_inverted, label='Anomaly Score (inverted)', color='blue')
-    # plt.plot(X_full[:, 0:3], label='Signal (channels 0:3)', color='orange', alpha=0.5)
-    # plt.show()
     
     roc_auc = metrics['roc_auc']
     th_optimal = metrics['threshold']
@@ -279,7 +248,7 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     print(f'  F1-score: {f1:.3f}')
     
     if show_roc_plot:
-        fpr, tpr, _ = roc_curve(mask_aligned, scores_inverted)
+        fpr, tpr, _ = roc_curve(mask_, scores_inverted)
         roc_auc_plot = auc(fpr, tpr)
         plt.figure(figsize=(6, 5))
         plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc_plot:.2f})')
@@ -288,13 +257,13 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.title(f'ROC Curve - {subject_label} (KNN)')
+        plt.title(f'ROC Curve - {subject_label} (PCA)')
         plt.legend(loc="lower right")
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
     
     results = {
-        'knn_training_time': knn_time,
+        'pca_training_time': pca_time,
         'evaluation_time': eval_time,
         'roc_auc': roc_auc,
         'threshold': th_optimal,
@@ -307,9 +276,9 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     return results
 
 
-def process_all_subjects_knn():
+def process_all_subjects_pca():
     """
-    Process all subjects using KNN anomaly detection.
+    Process all subjects using PCA anomaly detection.
     """
     dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
     subject_dirs = sorted(
@@ -324,7 +293,7 @@ def process_all_subjects_knn():
         features = get_features(df)
 
         # Process subject
-        results = process_subject_knn(
+        results = process_subject_pca(
             df, features,
             subject_label=subject_dir,
             show_roc_plot=False
@@ -363,7 +332,7 @@ def process_all_subjects_knn():
     results_df = pd.DataFrame(all_results)
     results_df = results_df.set_index('subject')[metrics_order].T
     
-    output_file = 'results_imwsha_knn.xlsx'
+    output_file = 'results_imwsha_pca.xlsx'
     results_df.to_excel(output_file)
     print(f'\nResults saved to {output_file}')
     
@@ -376,17 +345,16 @@ def process_all_subjects_knn():
 
 if __name__ == '__main__':
     print('='*70)
-    print('IM-WSHA KNN Anomaly Detection Pipeline')
+    print('IM-WSHA PCA Anomaly Detection Pipeline')
     print('='*70)
     print(f'\nParameters:')
-    print(f'  N_NEIGHBORS: {N_NEIGHBORS}')
+    print(f'  N_COMPONENTS: {N_COMPONENTS}')
     print(f'  WINDOW_LENGTH: {WINDOW_LENGTH}')
     print(f'  STRIDE: {STRIDE}')
-    print(f'  METRIC: {KNN_METRIC}')
-    print(f'  SCORE_REDUCTION: {SCORE_REDUCTION}')
+    print(f'  SCORE_TYPE: {SCORE_TYPE}')
     print(f'  Training activities: 1-{NT}')
     
-    results = process_all_subjects_knn()
+    results = process_all_subjects_pca()
     
     print('\n' + '='*70)
     print('Processing completed!')

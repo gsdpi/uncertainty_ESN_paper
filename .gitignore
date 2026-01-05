@@ -175,6 +175,7 @@ cython_debug/
 /IM-WSHA_Dataset.zip
 /dataicann.zip
 /dataicann
+/swat_dataset
 /__MACOSX
 
 *.png
@@ -182,3 +183,4 @@ cython_debug/
 results_*
 *.xls
 *.csv
+*.zip

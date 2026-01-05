@@ -1,5 +1,5 @@
 ##################################################################
-# Main script for IM-WSHA dataset processing with KNN
+# Main script for ICANN dataset processing with KNN
 # anomaly detection (no ESN reservoir)
 ##################################################################
 
@@ -10,23 +10,22 @@ import matplotlib.pyplot as plt
 from sklearn.metrics import roc_curve, auc
 import os
 
-# Import KNN detector from test-knn.py
-import sys
-sys.path.insert(0, os.path.dirname(__file__))
+# Import KNN detector
 from sklearn.neighbors import NearestNeighbors
 
 # Shared utilities
 from esn_uncertainty import calc_metrics
-from imwsha_utils import (
-    NT,
+from icann_utils import (
     WINDOW_LENGTH,
     STRIDE,
     SAMPLING_PERIOD,
-    clean_subject_data,
-    load_subject_df,
+    load_icann_data,
     get_features,
-    get_train_activities,
+    get_train_experiments,
+    get_anomaly_experiments,
+    get_normal_experiments,
     prepare_train_df,
+    create_label_mask,
 )
 
 # Figure configuration
@@ -189,18 +188,18 @@ class KNNAnomalyDetector:
         return scores
 
 
-def process_subject_knn(df, features, subject_label, show_roc_plot=False):
+def process_signal_knn(df, features, signal_label, show_roc_plot=False):
     """
-    Process a single subject using KNN anomaly detection.
+    Process a single signal using KNN anomaly detection.
     
     Parameters
     ----------
     df : pandas.DataFrame
-        Subject data with features and activity_label
+        Full dataset with all signals
     features : list
         List of feature column names
-    subject_label : str
-        Subject identifier
+    signal_label : str
+        Signal identifier (e.g., 'all', 'ax', 'ay')
     show_roc_plot : bool
         Whether to display ROC curve
         
@@ -210,11 +209,11 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
         Dictionary containing metrics and timing information
     """
     print(f'\n{"="*70}')
-    print(f'PROCESSING: {subject_label}')
+    print(f'PROCESSING SIGNAL: {signal_label}')
     print(f'{"="*70}\n')
     
-    train_activities = get_train_activities()
-    df_train = prepare_train_df(df, train_activities, trim=150)
+    train_experiments = get_train_experiments()
+    df_train = prepare_train_df(df, train_experiments)
     
     # Extract features as numpy arrays
     X_train = df_train[features].values
@@ -247,21 +246,17 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     eval_time = time.time() - start_time
     print(f'Evaluation completed in {eval_time:.3f} seconds')
     
-    # Calculate metrics
-    # Expand score to adjust lengths
+    # Expand score to align with samples
     scores_exp = np.kron(scores, np.ones(STRIDE))
-
-    # Create mask for train activities
-    mask = np.isin(df['activity_label'], train_activities).astype(int)
+    
+    # Create mask: 1 for normal (training), 0 for anomalies
+    mask = create_label_mask(df, get_normal_experiments(), get_anomaly_experiments())
     mask_ = mask[:len(scores_exp)]
-
+    
     # For KNN, higher score = more anomalous, so we need to invert for calc_metrics
-    # which expects higher values for the positive class (train activities)
+    # which expects higher values for the positive class (normal = 1 in mask)
     scores_inverted = -scores_exp
     metrics = calc_metrics(mask_, scores_inverted, plot_roc=False)
-    # plt.plot(scores_inverted, label='Anomaly Score (inverted)', color='blue')
-    # plt.plot(X_full[:, 0:3], label='Signal (channels 0:3)', color='orange', alpha=0.5)
-    # plt.show()
     
     roc_auc = metrics['roc_auc']
     th_optimal = metrics['threshold']
@@ -279,7 +274,7 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     print(f'  F1-score: {f1:.3f}')
     
     if show_roc_plot:
-        fpr, tpr, _ = roc_curve(mask_aligned, scores_inverted)
+        fpr, tpr, _ = roc_curve(mask_, scores_inverted)
         roc_auc_plot = auc(fpr, tpr)
         plt.figure(figsize=(6, 5))
         plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (AUC = {roc_auc_plot:.2f})')
@@ -288,10 +283,11 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
         plt.ylim([0.0, 1.05])
         plt.xlabel('False Positive Rate')
         plt.ylabel('True Positive Rate')
-        plt.title(f'ROC Curve - {subject_label} (KNN)')
+        plt.title(f'ROC Curve - {signal_label} (KNN)')
         plt.legend(loc="lower right")
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
+        plt.show()
     
     results = {
         'knn_training_time': knn_time,
@@ -307,49 +303,57 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     return results
 
 
-def process_all_subjects_knn():
+def process_all_signals_knn(df):
     """
-    Process all subjects using KNN anomaly detection.
+    Process different signal combinations using KNN anomaly detection.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Full dataset
+    
+    Returns
+    -------
+    all_results : list
+        List of result dictionaries
     """
-    dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
-    subject_dirs = sorted(
-        [d for d in os.listdir(dataset_path) if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')]
-    )
-    print(f'Found {len(subject_dirs)} subjects')
-
+    all_features = get_features()
+    
+    # Process individual signals and combinations
+    signal_configs = [
+        (['ax'], 'ax'),
+        (['ay'], 'ay'),
+        (all_features, 'all_channels'),
+    ]
+    
     all_results = []
-
-    for subject_dir in subject_dirs:
-        df = load_subject_df(dataset_path, subject_dir)
-        features = get_features(df)
-
-        # Process subject
-        results = process_subject_knn(
+    
+    for features, signal_label in signal_configs:
+        results = process_signal_knn(
             df, features,
-            subject_label=subject_dir,
+            signal_label=signal_label,
             show_roc_plot=False
         )
-
+        
         # Store results
         all_results.append({
-            'subject': subject_dir,
+            'Signal': signal_label,
             **results
         })
-
+    
     # Print summary
     print('\n' + '='*70)
     print('SUMMARY')
     print('='*70)
     for res in all_results:
-        print(f"\n{res['subject']}:")
+        print(f"\n{res['Signal']}:")
         print(f"  ROC AUC: {res['roc_auc']:.4f}")
         print(f"  Sensitivity: {res['sensitivity']:.3f}")
         print(f"  Specificity: {res['specificity']:.3f}")
         print(f"  Precision: {res['precision']:.3f}")
         print(f"  F1-score: {res['f1_score']:.3f}")
-
+    
     # Save to Excel
-
     metrics_order = [
         'roc_auc',
         'sensitivity',
@@ -357,13 +361,14 @@ def process_all_subjects_knn():
         'precision',
         'f1_score',
         'threshold',
+        'knn_training_time',
         'evaluation_time'
     ]
-
-    results_df = pd.DataFrame(all_results)
-    results_df = results_df.set_index('subject')[metrics_order].T
     
-    output_file = 'results_imwsha_knn.xlsx'
+    results_df = pd.DataFrame(all_results)
+    results_df = results_df.set_index('Signal')[metrics_order]
+    
+    output_file = 'results_icann_knn.xlsx'
     results_df.to_excel(output_file)
     print(f'\nResults saved to {output_file}')
     
@@ -376,7 +381,7 @@ def process_all_subjects_knn():
 
 if __name__ == '__main__':
     print('='*70)
-    print('IM-WSHA KNN Anomaly Detection Pipeline')
+    print('ICANN KNN Anomaly Detection Pipeline')
     print('='*70)
     print(f'\nParameters:')
     print(f'  N_NEIGHBORS: {N_NEIGHBORS}')
@@ -384,9 +389,15 @@ if __name__ == '__main__':
     print(f'  STRIDE: {STRIDE}')
     print(f'  METRIC: {KNN_METRIC}')
     print(f'  SCORE_REDUCTION: {SCORE_REDUCTION}')
-    print(f'  Training activities: 1-{NT}')
+    print(f'  Training experiments: {get_train_experiments()}')
+    print(f'  Anomaly experiments: {get_anomaly_experiments()}')
     
-    results = process_all_subjects_knn()
+    # Load data
+    print('\nLoading ICANN dataset...')
+    df = load_icann_data('./dataicann/dataicann.mat')
+    print(f'Dataset loaded: {df.shape[0]} samples x {df.shape[1]} features')
+    
+    results = process_all_signals_knn(df)
     
     print('\n' + '='*70)
     print('Processing completed!')

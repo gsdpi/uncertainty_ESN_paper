@@ -21,6 +21,17 @@ from reservoirpy.nodes import Reservoir, Ridge, Input
 from packaging.version import Version
 
 from esn_uncertainty import train_uncertainty_model, evaluate_uncertainty_on_signal, calc_metrics
+from icann_utils import (
+    WINDOW_LENGTH,
+    STRIDE,
+    SAMPLING_PERIOD,
+    load_icann_data,
+    get_features,
+    get_train_experiments,
+    get_normal_experiments,
+    get_anomaly_experiments,
+    create_label_mask,
+)
 
 # Figure configuration
 plt.rcParams.update({'font.size': 18})
@@ -40,10 +51,7 @@ WARMUP = 20
 SET_BIAS = True
 RIDGE = 5.530826061879047e-08
 
-# Windowing parameters
-WINDOW_LENGTH = 1000
-STRIDE = 200   
-SAMPLING_PERIOD = 1 / 5000.
+# Note: WINDOW_LENGTH, STRIDE, SAMPLING_PERIOD are imported from icann_utils
 
 # Global model (reused for all cases)
 GLOBAL_ESN = None
@@ -129,7 +137,7 @@ def process_vibration(df, esn_model, features, r_values=[20], train_readout=Fals
     print(f'PROCESSING ACCELEROMETER: {features}')
     print(f'{"="*70}\n')
     
-    train_activities   = [2,6,3,4,5]
+    train_activities = get_train_experiments()
     df_train_parts = []
     for exp_id in train_activities:
         df_exp = df[df['experiment'] == exp_id]
@@ -197,7 +205,8 @@ def process_vibration(df, esn_model, features, r_values=[20], train_readout=Fals
             eval_time = time.time() - start_time
             
             # Calculate metrics
-            mask = np.isin(df['experiment'], train_activities+[7,8]).astype(int)
+            # mask = 1 for normal experiments (train + test normal), 0 for anomalies
+            mask = create_label_mask(df, get_normal_experiments(), get_anomaly_experiments())
             mask_ = mask[:len(logprobX_exp)]
             
             actual_labels = mask_
@@ -326,59 +335,66 @@ def process_vibration(df, esn_model, features, r_values=[20], train_readout=Fals
 ##################################################################
 
 if __name__ == '__main__':
-    from scipy.io import loadmat
-
-    # Read data
-    PATH = './dataicann/'
-    d = loadmat(PATH+'dataicann.mat')
-
-    # Create dataframe with all signals
-    ohm     = [0, 5, 10, 15, 20] + [np.nan, np.nan, np.nan, np.nan]
-    exp   = [2, 6, 3, 4, 5] + [7, 8, 0, 1]
-    X = []
-    Y = []
-    X_label = []
-
-    for i in range(len(exp)):
-        paq = d['z'][0][exp[i]]
-        X.append(paq)
-        Y.append(np.repeat(float(ohm[i]), paq.shape[0]))
-        X_label.append(np.repeat(exp[i], paq.shape[0]))
-
-    X = np.vstack(X)
-    Y = np.vstack([np.array(y, dtype=float).reshape(-1, 1) for y in Y])
-    X_label = np.vstack([np.array(xl, dtype=int).reshape(-1, 1) for xl in X_label])
-    df = pd.DataFrame(X, columns=["ac", "ax", "ay", "ir", "is"])
-    df.insert(0, 'experiment', X_label.flatten())
-    df['resistance'] = Y.flatten()
-
+    print('='*70)
+    print('ICANN ESN Uncertainty Estimation Pipeline')
+    print('='*70)
+    
+    # Load data using icann_utils
+    print('\nLoading ICANN dataset...')
+    df = load_icann_data('./dataicann/dataicann.mat')
+    print(f'Dataset loaded: {df.shape[0]} samples x {df.shape[1]} features')
+    
+    all_features = get_features()
+    train_experiments = get_train_experiments()
+    anomaly_experiments = get_anomaly_experiments()
+    
+    print(f'\nTraining experiments: {train_experiments}')
+    print(f'Anomaly experiments: {anomaly_experiments}')
+    
     # Create the ESN model once in main
     esn_model = create_esn_model()
-    process_vibration(df,esn_model,['ax'],train_readout=True,show_roc_plot=True)
 
-    # Option 1: process single subject
-    #esn_model, _ = single_subject_example(esn_model)
+    # Process vibration data with uncertainty estimation
+    # Test individual signals and all channels like icann_knn
+    signal_configs = [
+        (['ax'], 'ax'),
+        (['ay'], 'ay'),
+        (all_features, 'all_channels'),
+    ]
+    
+    all_results = []
+    for features, signal_label in signal_configs:
+        # Create a new ESN model if processing 2+ features
+        if len(features) >= 2:
+            print(f'\nCreating new ESN model for {len(features)} features: {features}')
+            current_esn_model = create_esn_model()
+        else:
+            current_esn_model = esn_model
+        
+        results = process_vibration(df, current_esn_model, features, train_readout=True, show_roc_plot=False)
+        # Store results - extract the r=20 results
+        all_results.append({
+            'Signal': signal_label,
+            **results[20]  # Extract results for r=20
+        })
 
-    # # Option 2: process all subjects
-    # all_results = process_all_subjects(esn_model)
-
-    # # Save results to Excel (rows=metrics, columns=subjects)
-    # metrics_order = [
-    #     'roc_auc',
-    #     'sensitivity',
-    #     'specificity',
-    #     'precision',
-    #     'f1_score',
-    #     'threshold',
-    #     'esn_training_time',
-    #     'kde_training_time',
-    #     'evaluation_time'
-    # ]
-    # df_results = pd.DataFrame(all_results)
-    # # Keep only metrics of interest and transpose
-    # df_metrics = df_results.set_index('experiment')[metrics_order].T
-    # df_metrics.to_excel('results_icann.xlsx', sheet_name='metrics')
-    # print('\nResults saved to results_icann.xlsx')
+    # Save results to Excel (rows=signals, columns=metrics)
+    metrics_order = [
+        'roc_auc',
+        'sensitivity',
+        'specificity',
+        'precision',
+        'f1_score',
+        'threshold',
+        'esn_training_time',
+        'kde_training_time',
+        'evaluation_time'
+    ]
+    df_results = pd.DataFrame(all_results)
+    # Keep only metrics of interest and set Signal as index
+    df_metrics = df_results.set_index('Signal')[metrics_order]
+    df_metrics.to_excel('results_icann.xlsx', sheet_name='metrics')
+    print('\nResults saved to results_icann.xlsx')
 
     input('\nPress ENTER to close plots and exit...')
 
