@@ -233,6 +233,8 @@ def process_subject_pca(df, features, subject_label, show_roc_plot=False):
     metrics = calc_metrics(mask_, scores_inverted, plot_roc=False)
     
     roc_auc = metrics['roc_auc']
+    auprc = metrics['auprc']
+    recall_at_1pct = metrics['recall_at_1pct_fpr']
     th_optimal = metrics['threshold']
     sensitivity = metrics['sensitivity']
     specificity = metrics['specificity']
@@ -241,6 +243,8 @@ def process_subject_pca(df, features, subject_label, show_roc_plot=False):
     
     print(f'\nMetrics:')
     print(f'  AUC: {roc_auc:.3f}')
+    print(f'  AUPRC: {auprc:.3f}')
+    print(f'  Recall @ FPR<=1%: {recall_at_1pct:.3f}')
     print(f'  Optimal threshold: {th_optimal:.3f}')
     print(f'  Sensitivity: {sensitivity:.3f}')
     print(f'  Specificity: {specificity:.3f}')
@@ -266,6 +270,8 @@ def process_subject_pca(df, features, subject_label, show_roc_plot=False):
         'pca_training_time': pca_time,
         'evaluation_time': eval_time,
         'roc_auc': roc_auc,
+        'auprc': auprc,
+        'recall_at_1pct_fpr': recall_at_1pct,
         'threshold': th_optimal,
         'sensitivity': sensitivity,
         'specificity': specificity,
@@ -312,6 +318,8 @@ def process_all_subjects_pca():
     for res in all_results:
         print(f"\n{res['subject']}:")
         print(f"  ROC AUC: {res['roc_auc']:.4f}")
+        print(f"  AUPRC: {res['auprc']:.4f}")
+        print(f"  Recall @ FPR<=1%: {res['recall_at_1pct_fpr']:.3f}")
         print(f"  Sensitivity: {res['sensitivity']:.3f}")
         print(f"  Specificity: {res['specificity']:.3f}")
         print(f"  Precision: {res['precision']:.3f}")
@@ -321,6 +329,8 @@ def process_all_subjects_pca():
 
     metrics_order = [
         'roc_auc',
+        'auprc',
+        'recall_at_1pct_fpr',
         'sensitivity',
         'specificity',
         'precision',

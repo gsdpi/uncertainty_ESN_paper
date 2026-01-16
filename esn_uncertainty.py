@@ -22,18 +22,33 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     metrics : dict
         Dictionary containing all calculated metrics:
         - roc_auc: Area under ROC curve
+        - auprc: Area under Precision-Recall curve
         - threshold: Optimal threshold (maximizes TPR - FPR)
         - sensitivity: True positive rate
         - specificity: True negative rate
         - precision: Positive predictive value
         - f1_score: F1 score
+        - recall_at_1pct_fpr: Recall when FPR <= 1%
     """
-    from sklearn.metrics import roc_curve, auc, recall_score, precision_score, f1_score
+    from sklearn.metrics import roc_curve, auc, precision_recall_curve, recall_score, precision_score, f1_score
     import matplotlib.pyplot as plt
 
+    # ROC curve metrics
     fpr, tpr, thresholds = roc_curve(actual_labels, scores)
     roc_auc = auc(fpr, tpr)
     th_optimal = thresholds[np.argmax(tpr - fpr)]
+    
+    # Precision-Recall curve metrics
+    precision_curve, recall_curve, _ = precision_recall_curve(actual_labels, scores)
+    auprc = auc(recall_curve, precision_curve)
+    
+    # Recall @ FPR <= 1%
+    fpr_threshold = 0.01
+    mask_low_fpr = fpr <= fpr_threshold
+    if np.any(mask_low_fpr):
+        recall_at_1pct_fpr = np.max(tpr[mask_low_fpr])
+    else:
+        recall_at_1pct_fpr = 0.0
 
     if plot_roc:
         plt.figure()
@@ -59,11 +74,13 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     # Return all metrics as dictionary
     return {
         'roc_auc': roc_auc,
+        'auprc': auprc,
         'threshold': th_optimal,
         'sensitivity': sensitivity,
         'specificity': specificity,
         'precision': precision,
-        'f1_score': f1
+        'f1_score': f1,
+        'recall_at_1pct_fpr': recall_at_1pct_fpr
     }
 
 
