@@ -25,6 +25,7 @@ from icann_utils import (
     get_anomaly_experiments,
     get_normal_experiments,
     prepare_train_df,
+    prepare_test_df,
     create_label_mask,
 )
 
@@ -214,13 +215,14 @@ def process_signal_knn(df, features, signal_label, show_roc_plot=False):
     
     train_experiments = get_train_experiments()
     df_train = prepare_train_df(df, train_experiments)
-    
-    # Extract features as numpy arrays
+    test_experiments = get_normal_experiments()+get_anomaly_experiments()
+    df_test = prepare_test_df(df, test_experiments)
+
     X_train = df_train[features].values
-    X_full = df[features].values
-    
+    X_test = df_test[features].values
+
     print(f'Training data shape: {X_train.shape}')
-    print(f'Full data shape: {X_full.shape}')
+    print(f'Test data shape: {X_test.shape}')
     
     # Train KNN model
     print('\nTraining KNN anomaly detector...')
@@ -239,22 +241,19 @@ def process_signal_knn(df, features, signal_label, show_roc_plot=False):
     knn_time = time.time() - start_time
     print(f'KNN training completed in {knn_time:.3f} seconds')
     
-    # Evaluate on full signal
-    print('\nEvaluating on full signal...')
+    # Evaluate on test signal
+    print('\nEvaluating on test signal...')
     start_time = time.time()
-    scores = detector.score(X_full)
+    scores = detector.score(X_test)
     eval_time = time.time() - start_time
     print(f'Evaluation completed in {eval_time:.3f} seconds')
     
-    # Expand score to align with samples
     scores_exp = np.kron(scores, np.ones(STRIDE))
-    
-    # Create mask: 1 for normal (training), 0 for anomalies
-    mask = create_label_mask(df, get_normal_experiments(), get_anomaly_experiments())
+
+    mask = create_label_mask(df_test, get_normal_experiments(), get_anomaly_experiments())
     mask_ = mask[:len(scores_exp)]
-    
-    # For KNN, higher score = more anomalous, so we need to invert for calc_metrics
-    # which expects higher values for the positive class (normal = 1 in mask)
+
+    # Higher score = more anomalous, invert for calc_metrics which expects higher values for the positive class (normal=1)
     scores_inverted = -scores_exp
     metrics = calc_metrics(mask_, scores_inverted, plot_roc=False)
     
@@ -271,9 +270,6 @@ def process_signal_knn(df, features, signal_label, show_roc_plot=False):
     print(f'  AUC: {roc_auc:.3f}')
     print(f'  AUPRC: {auprc:.3f}')
     print(f'  Recall @ FPR<=1%: {recall_at_1pct:.3f}')
-    print(f'  Optimal threshold: {th_optimal:.3f}')
-    print(f'  Sensitivity: {sensitivity:.3f}')
-    print(f'  Specificity: {specificity:.3f}')
     print(f'  Precision: {precision:.3f}')
     print(f'  F1-score: {f1:.3f}')
     
@@ -355,7 +351,7 @@ def process_all_signals_knn(df):
         print(f"\n{res['Signal']}:")
         print(f"  ROC AUC: {res['roc_auc']:.4f}")
         print(f"  AUPRC: {res['auprc']:.4f}")
-        print(f"  Recall @ FPR<=1%: {res['recall_at_1pct_fpr']:.4f}")
+        print(f"  Recall @ FPR<=1%: {res['recall_at_1pct_fpr']:.3f}")
         print(f"  Sensitivity: {res['sensitivity']:.3f}")
         print(f"  Specificity: {res['specificity']:.3f}")
         print(f"  Precision: {res['precision']:.3f}")

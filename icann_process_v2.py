@@ -77,7 +77,7 @@ Y_train = np.hstack(Y).reshape(-1,1)
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
 n_states = 300
-rho=1.270074061545781 
+rho=0.9 #1.270074061545781 
 sparsity=0.01
 Lr=0.27031482024950293
 Win_scale=0.8696730804425951
@@ -149,7 +149,8 @@ print('Running all signals on the ESN model...')
 
 # Get all signal in vector X
 X = []
-test   = train + [7,8,0,1]
+#test   = train + [7,8,0,1]
+test   =  [7,8,0,1]
 for i in range(len(test)):
     paq = d['z'][0][test[i]][:,1]
     X.append(paq)
@@ -189,7 +190,8 @@ print('\nDone...')
 # Get classes (seen/unseen)
 
 Classes_ = []
-seen = train+[7,8]
+#seen = train+[7,8]
+seen = [7,8]
 unseen = [0,1]
 for i in range(len(seen)):
     siz = len(d['z'][0][seen[i]][:,1])
@@ -206,7 +208,7 @@ Classes_ = np.hstack(Classes_).reshape(-1,1)
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
 
-for r in np.arange(1,21,1):
+for r in np.arange(1,21,4):
     values = np.stack(C_pdf[:,0:r])
     bw = len(values)  ** (-1. / (r + 4)) # Scott's rule of thumb
     kernel = KernelDensity(kernel='gaussian', bandwidth=bw).fit(values)

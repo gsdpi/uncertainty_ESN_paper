@@ -24,6 +24,7 @@ from icann_utils import (
     get_anomaly_experiments,
     get_normal_experiments,
     prepare_train_df,
+    prepare_test_df,
     create_label_mask,
 )
 
@@ -136,12 +137,14 @@ def process_signal_pca(df, features, signal_label, show_roc_plot=False):
 
     train_experiments = get_train_experiments()
     df_train = prepare_train_df(df, train_experiments)
+    test_experiments = get_normal_experiments()+get_anomaly_experiments()
+    df_test = prepare_test_df(df, test_experiments)
 
     X_train = df_train[features].values
-    X_full = df[features].values
+    X_test = df_test[features].values
 
     print(f'Training data shape: {X_train.shape}')
-    print(f'Full data shape: {X_full.shape}')
+    print(f'Test data shape: {X_test.shape}')
 
     print('\nTraining PCA anomaly detector...')
     start_time = time.time()
@@ -157,15 +160,15 @@ def process_signal_pca(df, features, signal_label, show_roc_plot=False):
     pca_time = time.time() - start_time
     print(f'PCA training completed in {pca_time:.3f} seconds')
 
-    print('\nEvaluating on full signal...')
+    print('\nEvaluating on test signal...')
     start_time = time.time()
-    scores = detector.score(X_full)
+    scores = detector.score(X_test)
     eval_time = time.time() - start_time
     print(f'Evaluation completed in {eval_time:.3f} seconds')
 
     scores_exp = np.kron(scores, np.ones(STRIDE))
 
-    mask = create_label_mask(df, get_normal_experiments(), get_anomaly_experiments())
+    mask = create_label_mask(df_test, get_normal_experiments(), get_anomaly_experiments())
     mask_ = mask[:len(scores_exp)]
 
     # Higher score = more anomalous, invert for calc_metrics which expects higher values for the positive class (normal=1)

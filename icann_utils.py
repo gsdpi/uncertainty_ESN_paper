@@ -27,9 +27,10 @@ EXPERIMENT_MAPPING = {
 TRAIN_EXPERIMENTS = [2, 6, 3, 4, 5]
 
 # Test anomalies (to detect)
-ANOMALY_EXPERIMENTS = [7, 8, 0, 1]
+ANOMALY_EXPERIMENTS = [0, 1]
 
-NORMAL_EXPERIMENTS = TRAIN_EXPERIMENTS + [7, 8]
+#NORMAL_EXPERIMENTS = TRAIN_EXPERIMENTS + [7, 8]
+NORMAL_EXPERIMENTS = [7, 8]
 
 
 def load_icann_data(mat_file_path='./dataicann/dataicann.mat'):
@@ -154,6 +155,40 @@ def prepare_train_df(df, train_experiments=None, trim=None):
         df_train = pd.concat([df_train, df_exp], ignore_index=True)
     
     return df_train
+
+
+def prepare_test_df(df, test_experiments=None, trim=None):
+    """
+    Return a dataframe with only test experiments.
+    
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Full dataset
+    test_experiments : list, optional
+        List of experiment IDs to use for testing. If None, uses ANOMALY_EXPERIMENTS and NORMAL_EXPERIMENTS.
+    trim : int, optional
+        Number of samples to trim at the start and end of each experiment.
+        If None, no trimming is applied.
+    
+    Returns
+    -------
+    df_test : pandas.DataFrame
+        Test dataframe
+    """
+    if test_experiments is None:
+        test_experiments = get_anomaly_experiments() + get_normal_experiments()
+    
+    df_test = pd.DataFrame()
+    for exp_id in test_experiments:
+        df_exp = df[df['experiment'] == exp_id]
+        
+        if trim is not None and trim > 0:
+            df_exp = df_exp.iloc[trim:-trim]
+        
+        df_test = pd.concat([df_test, df_exp], ignore_index=True)
+    
+    return df_test
 
 
 def create_label_mask(df, normal_experiments=None, anomaly_experiments=None):
