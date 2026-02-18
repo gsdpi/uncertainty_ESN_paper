@@ -177,7 +177,7 @@ def prepare_test_df(df, test_experiments=None, trim=None):
         Test dataframe
     """
     if test_experiments is None:
-        test_experiments = get_anomaly_experiments() + get_normal_experiments()
+        test_experiments = get_normal_experiments()+get_anomaly_experiments()
     
     df_test = pd.DataFrame()
     for exp_id in test_experiments:

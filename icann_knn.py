@@ -234,7 +234,7 @@ def process_signal_knn(df, features, signal_label, show_roc_plot=False):
         stride=STRIDE,
         metric=KNN_METRIC,
         score_reduction=SCORE_REDUCTION,
-        transition_window=WINDOW_LENGTH
+        transition_window=0 #WINDOW_LENGTH
     )
     
     detector.fit(X_train)

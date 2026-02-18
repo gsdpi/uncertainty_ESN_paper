@@ -48,8 +48,14 @@ import pandas as pd
 from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 
-# For article graphics set font to 24 points
-plt.rcParams.update({'font.size': 24})
+BACKEND = plt.get_backend().lower()
+
+# For article graphics use large fonts on interactive backends.
+# On non-interactive backends (e.g., Agg), reduce font size and enlarge figure.
+if 'agg' in BACKEND:
+    plt.rcParams.update({'font.size': 12, 'figure.figsize': (10, 6)})
+else:
+    plt.rcParams.update({'font.size': 24})
 
 # Read data
 PATH = './dataicann/'
@@ -67,7 +73,6 @@ train   = [2,6,3,4,5]
 
 for i in range(len(train)):
     paq = d['z'][0][train[i]][:,1]
-    paq = paq[:10000]  # use only first half of the signal for training
     X.append(paq)
     Y.append(np.repeat(ohm[i],len(paq)))
 X_train = np.hstack(X).reshape(-1,1)
@@ -77,7 +82,7 @@ Y_train = np.hstack(Y).reshape(-1,1)
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
 n_states = 300
-rho=0.9 #1.270074061545781 
+rho=0.99 #1.270074061545781 
 sparsity=0.01
 Lr=0.27031482024950293
 Win_scale=0.8696730804425951
@@ -145,11 +150,10 @@ print('\nDone...')
 # STEP 3: TEST THE METHOD
 #####################################################################
 
-print('Running all signals on the ESN model...')
+print('Running signals on the ESN model...')
 
 # Get all signal in vector X
 X = []
-#test   = train + [7,8,0,1]
 test   =  [7,8,0,1]
 for i in range(len(test)):
     paq = d['z'][0][test[i]][:,1]
@@ -190,7 +194,6 @@ print('\nDone...')
 # Get classes (seen/unseen)
 
 Classes_ = []
-#seen = train+[7,8]
 seen = [7,8]
 unseen = [0,1]
 for i in range(len(seen)):
@@ -208,7 +211,7 @@ Classes_ = np.hstack(Classes_).reshape(-1,1)
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
 
-for r in np.arange(1,21,4):
+for r in np.arange(1,21,1):
     values = np.stack(C_pdf[:,0:r])
     bw = len(values)  ** (-1. / (r + 4)) # Scott's rule of thumb
     kernel = KernelDensity(kernel='gaussian', bandwidth=bw).fit(values)
@@ -278,7 +281,15 @@ for r in np.arange(1,21,4):
     plt.grid()
 
 
-plt.show()
+if 'agg' in BACKEND:
+    output_dir = Path('./figures')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i, fig_num in enumerate(plt.get_fignums(), start=1):
+        fig = plt.figure(fig_num)
+        fig.savefig(output_dir / f'icann_process_v2_fig_{i}.png', dpi=300, bbox_inches='tight')
+    print(f'Backend no interactivo ({BACKEND}). Figuras guardadas en {output_dir.resolve()}')
+else:
+    plt.show()
 
 
 

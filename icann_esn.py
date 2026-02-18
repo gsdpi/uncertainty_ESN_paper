@@ -60,6 +60,8 @@ GLOBAL_ESN = None
 GLOBAL_RESERVOIR = None
 ESN_TRAINING_TIME = 0
 
+# Value of latent dimensions (r)
+LATENT_DIMENSIONS = 2
 
 ##################################################################
 # UTILITY FUNCTIONS (ESN and metrics)
@@ -131,7 +133,7 @@ def train_esn_model(esn_model, df_train, features, target_column='resistance'):
     return esn_model, training_time
 
 
-def process_vibration(df, esn_model, features, r_values=[20], train_readout=False,
+def process_vibration(df, esn_model, features, r_values=[LATENT_DIMENSIONS], train_readout=False,
                     show_roc_plot=False, target='resistance'):
 
 
@@ -181,7 +183,7 @@ def process_vibration(df, esn_model, features, r_values=[20], train_readout=Fals
             stride=STRIDE,
             train_activities=train_activities,
             reservoir=reservoir,
-            transition_window=WINDOW_LENGTH
+            transition_window=0 #WINDOW_LENGTH
         )
         kde_time = time.time() - start_time
         
@@ -355,12 +357,15 @@ if __name__ == '__main__':
     df = load_icann_data('./dataicann/dataicann.mat')
     print(f'Dataset loaded: {df.shape[0]} samples x {df.shape[1]} features')
     
-    all_features = get_features()
     train_experiments = get_train_experiments()
     anomaly_experiments = get_anomaly_experiments()
-    
+    normal_experiments = get_normal_experiments()
+
     print(f'\nTraining experiments: {train_experiments}')
-    print(f'Anomaly experiments: {anomaly_experiments}')
+    print(f'Anomaly test experiments: {anomaly_experiments}')
+    print(f'Normal test experiments: {normal_experiments}')
+    all_features = get_features()
+        
     
     # Create the ESN model once in main
     esn_model = create_esn_model()
@@ -383,10 +388,10 @@ if __name__ == '__main__':
             current_esn_model = esn_model
         
         results = process_vibration(df, current_esn_model, features, train_readout=True, show_roc_plot=False)
-        # Store results - extract the r=20 results
+        # Store results - extract the r=_LATENT_DIMENSIONS results
         all_results.append({
             'Signal': signal_label,
-            **results[20]  # Extract results for r=20
+            **results[LATENT_DIMENSIONS]  # Extract results for r=LATENT_DIMENSIONS
         })
 
     # Save results to Excel (rows=signals, columns=metrics)

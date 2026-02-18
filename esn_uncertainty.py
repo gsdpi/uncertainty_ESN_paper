@@ -186,7 +186,11 @@ def train_uncertainty_model(df_train, features, target_column, r, window_length,
             continue
     
     C_pdf = np.array(C_pdf)
-    print(f'\nValid windows: {len(C_pdf)} (transitions excluded, {skipped_svd} SVD failures skipped)')
+    if(transition_window > 0):
+        print(f'\nValid windows: {len(C_pdf)} (transitions excluded, {skipped_svd} SVD failures skipped)')
+    else:
+        print(f'\nValid windows: {len(C_pdf)} (no transitions excluded, {skipped_svd} SVD failures skipped)')
+
     
     if len(C_pdf) == 0:
         return None
@@ -230,7 +234,7 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     """
     
     # Process all data from complete dataframe
-    print('Computing reservoir states for all data...')
+    print('Computing reservoir states for data...')
     X_all = df[features].values
     states_all = reservoir.run(X_all)
     

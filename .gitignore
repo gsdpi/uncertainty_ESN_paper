@@ -178,6 +178,7 @@ cython_debug/
 /ECG5000
 /swat_dataset
 /__MACOSX
+/figures
 
 *.png
 
