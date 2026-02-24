@@ -11,6 +11,7 @@ NT = 7  # number of training activities
 WINDOW_LENGTH = 140
 STRIDE = 20
 SAMPLING_PERIOD = 1 / 20.
+TRIM = 250  # number of samples to trim at the start and end of each activity segment for training
 
 # Cleaning rules per subject (copied from imwsha_main.py)
 SUBJECT_CLEANING = {
@@ -242,7 +243,7 @@ def get_train_activities():
     """
     return np.arange(1, NT + 1)
 
-def prepare_train_df(df, train_activities, trim=150):
+def prepare_train_df(df, train_activities, trim=TRIM):
     """
     Return a dataframe with only training activities, trimming `trim` samples at the start and end of each segment.
     """

@@ -21,6 +21,7 @@ from imwsha_utils import (
     WINDOW_LENGTH,
     STRIDE,
     SAMPLING_PERIOD,
+    TRIM,
     clean_subject_data,
     load_subject_df,
     get_features,
@@ -188,7 +189,7 @@ def process_subject_pca(df, features, subject_label, show_roc_plot=False):
     print(f'{"="*70}\n')
     
     train_activities = get_train_activities()
-    df_train = prepare_train_df(df, train_activities, trim=150)
+    df_train = prepare_train_df(df, train_activities, trim=TRIM)
     
     # Extract features as numpy arrays
     X_train = df_train[features].values

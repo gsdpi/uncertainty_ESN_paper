@@ -44,7 +44,7 @@ RIDGE = 4.6801882228427845e-08
 
 # IM-WSHA utilities (loading, cleaning, features, splits)
 from imwsha_utils import (
-    NT, WINDOW_LENGTH, STRIDE, SAMPLING_PERIOD,
+    NT, WINDOW_LENGTH, STRIDE, SAMPLING_PERIOD, TRIM,
     load_subject_df, get_features, get_train_activities, prepare_train_df
 )
 
@@ -160,7 +160,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     
     # Prepare training data using shared utilities
     train_activities = get_train_activities()
-    df_train = prepare_train_df(df, train_activities, trim=150)
+    df_train = prepare_train_df(df, train_activities, trim=TRIM)
     
     # Train readout if requested
     training_time = 0

@@ -23,6 +23,7 @@ from imwsha_utils import (
     STRIDE,
     SAMPLING_PERIOD,
     clean_subject_data,
+    TRIM,
     load_subject_df,
     get_features,
     get_train_activities,
@@ -214,7 +215,7 @@ def process_subject_knn(df, features, subject_label, show_roc_plot=False):
     print(f'{"="*70}\n')
     
     train_activities = get_train_activities()
-    df_train = prepare_train_df(df, train_activities, trim=150)
+    df_train = prepare_train_df(df, train_activities, trim=TRIM)
     
     # Extract features as numpy arrays
     X_train = df_train[features].values
