@@ -33,10 +33,46 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     from sklearn.metrics import roc_curve, auc, precision_recall_curve, recall_score, precision_score, f1_score
     import matplotlib.pyplot as plt
 
+    actual_labels = np.asarray(actual_labels).astype(int)
+    scores = np.asarray(scores, dtype=float)
+
+    # Keep only finite pairs
+    finite_mask = np.isfinite(actual_labels) & np.isfinite(scores)
+    actual_labels = actual_labels[finite_mask]
+    scores = scores[finite_mask]
+
+    if actual_labels.size == 0 or np.unique(actual_labels).size < 2:
+        return {
+            'roc_auc': np.nan,
+            'auprc': np.nan,
+            'threshold': np.nan,
+            'sensitivity': np.nan,
+            'specificity': np.nan,
+            'precision': np.nan,
+            'f1_score': np.nan,
+            'recall_at_1pct_fpr': np.nan
+        }
+
     # ROC curve metrics
     fpr, tpr, thresholds = roc_curve(actual_labels, scores)
     roc_auc = auc(fpr, tpr)
-    th_optimal = thresholds[np.argmax(tpr - fpr)]
+
+    # Auto-correct score orientation when ranking is inverted
+    if roc_auc < 0.5:
+        scores = -scores
+        fpr, tpr, thresholds = roc_curve(actual_labels, scores)
+        roc_auc = auc(fpr, tpr)
+
+    j_stat = tpr - fpr
+    candidate_idx = np.argsort(j_stat)[::-1]
+
+    th_optimal = thresholds[candidate_idx[0]]
+    if not np.isfinite(th_optimal):
+        finite_candidates = [idx for idx in candidate_idx if np.isfinite(thresholds[idx])]
+        if len(finite_candidates) > 0:
+            th_optimal = thresholds[finite_candidates[0]]
+        else:
+            th_optimal = np.median(scores)
     
     # Precision-Recall curve metrics
     precision_curve, recall_curve, _ = precision_recall_curve(actual_labels, scores)
