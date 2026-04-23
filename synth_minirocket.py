@@ -27,7 +27,7 @@ plt.rcParams.update({'font.size': 18})
 ##################################################################
 
 N_KERNELS = 10_000
-SCORE_TYPE = "euclidean"  # 'euclidean', 'mahalanobis'
+SCORE_TYPE = 'mahalanobis' #"euclidean"  # 'euclidean', 'mahalanobis'
 RANDOM_SEED = 42
 
 
@@ -101,6 +101,7 @@ class MiniRocketAnomalyDetector:
         if self.score_type == "mahalanobis":
             cov = np.cov(X_transformed.T)
             cov += np.eye(cov.shape[0]) * 1e-6
+            print(f"Covariance matrix shape: {cov.shape}")
             try:
                 self.inv_cov = np.linalg.inv(cov)
             except np.linalg.LinAlgError:
@@ -275,15 +276,15 @@ def process_synthetic_minirocket(show_plot: bool = True):
         pred_anomaly = ~pred_normal
 
         plt.figure(figsize=(15, 5))
-        plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='Señal base')
+        plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='Base signal')
 
         colors = {
-            'phase_inversion': 'red',
+            'frequency_acceleration': 'red',
             'amplitude_breakdown': 'orange',
         }
         labels_map = {
-            'phase_inversion': 'Anomaly: Phase',
-            'amplitude_breakdown': 'Anomaly: Amplitude',
+            'frequency_acceleration': 'Anomaly: Frequency Acceleration',
+            'amplitude_breakdown': 'Anomaly: Amplitude Breakdown',
         }
 
         plotted = set()
@@ -305,7 +306,7 @@ def process_synthetic_minirocket(show_plot: bool = True):
             color='green',
             lw=3.4,
             alpha=0.9,
-            label='MiniRocket: detectado normal',
+            label='MiniRocket: normal detected',
         )
 
         signal_pred_anomaly = signal_plot.copy()
@@ -316,7 +317,7 @@ def process_synthetic_minirocket(show_plot: bool = True):
             color='red',
             lw=3.4,
             alpha=0.95,
-            label='MiniRocket: detectado anómalo',
+            label='MiniRocket: anomaly detected',
         )
 
         plt.title('Synthetic Test Signal with Anomalies (Slow Frequencies)')

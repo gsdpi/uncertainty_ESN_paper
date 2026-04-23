@@ -81,17 +81,31 @@ Y_train = np.hstack(Y).reshape(-1,1)
 
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
+# n_states = 300
+# rho=0.99 #1.270074061545781 
+# sparsity=0.01
+# Lr=0.27031482024950293
+# Win_scale=0.8696730804425951
+# Wfb_scale=.0
+# input_scale = 1
+# Washout = 0
+# Warmup = 20 #100
+# set_bias = True # input_bias for the Ridge minimization, if true bias is added to inputs
+# ridge = 5.530826061879047e-08
+
+
 n_states = 300
 rho=0.99 #1.270074061545781 
 sparsity=0.01
-Lr=0.27031482024950293
-Win_scale=0.8696730804425951
+Lr=0.27
+Win_scale=0.6
 Wfb_scale=.0
 input_scale = 1
 Washout = 0
 Warmup = 20 #100
 set_bias = True # input_bias for the Ridge minimization, if true bias is added to inputs
-ridge = 5.530826061879047e-08
+ridge = 1e-04
+
 
 print('Creating ESN...')
 data = Input()
@@ -211,6 +225,14 @@ Classes_ = np.hstack(Classes_).reshape(-1,1)
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
 
+r_values = []
+auc_values = []
+sensitivity_values = []
+specificity_values = []
+precision_values = []
+f1_values = []
+threshold_values = []
+
 for r in np.arange(1,21,1):
     values = np.stack(C_pdf[:,0:r])
     bw = len(values)  ** (-1. / (r + 4)) # Scott's rule of thumb
@@ -229,7 +251,7 @@ for r in np.arange(1,21,1):
         plt.figure(1)
         plt.plot(fpr, tpr, label=f'r={r}, AUC = {roc_auc:.3f}', linewidth=2.5, marker = 'o')
         plt.grid(visible=True)
-        plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
 
     th_optimal = thresholds[np.argmax(tpr - fpr)]
     print(f'Dimensions: {r}')
@@ -241,6 +263,15 @@ for r in np.arange(1,21,1):
     specificity = recall_score(np.logical_not(Classes) , np.logical_not(logprobX_exp>th_optimal))
     precision  = precision_score(Classes, logprobX_exp>th_optimal)
     f1 = f1_score(Classes , logprobX_exp>th_optimal)
+
+    r_values.append(r)
+    auc_values.append(roc_auc)
+    sensitivity_values.append(sensitivity)
+    specificity_values.append(specificity)
+    precision_values.append(precision)
+    f1_values.append(f1)
+    threshold_values.append(th_optimal)
+
     print(f' Sensitivity: {sensitivity:.3f}, Specificity: {specificity:.3f}, Precision: {precision:.3f}, F1-score: {f1:.3f}')
 
     washout = 600
@@ -281,13 +312,49 @@ for r in np.arange(1,21,1):
     plt.grid()
 
 
+plt.figure()
+plt.subplot(2,1,1)
+plt.plot(r_values, auc_values, marker='o', linewidth=2, label='AUC')
+plt.plot(r_values, sensitivity_values, marker='o', linewidth=2, label='Sensitivity')
+plt.plot(r_values, specificity_values, marker='o', linewidth=2, label='Specificity')
+#plt.plot(r_values, precision_values, marker='o', linewidth=2, label='Precision')
+#plt.plot(r_values, f1_values, marker='o', linewidth=2, label='F1-score')
+metric_values = np.array([
+    *auc_values,
+    *sensitivity_values,
+    *specificity_values,
+#    *precision_values,
+#    *f1_values
+])
+y_min = max(0.0, metric_values.min() - 0.03)
+y_max = min(1.05, metric_values.max() + 0.02)
+if y_max - y_min < 0.05:
+    y_min = max(0.0, y_min - 0.03)
+    y_max = min(1.05, y_max + 0.03)
+plt.ylim(y_min, y_max)
+plt.xlabel('Dimensionality r')
+plt.ylabel('Score')
+plt.title('Performance metrics vs dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='lower right')
+
+plt.subplot(2,1,2)
+plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
+plt.xlabel('Dimensionality r')
+plt.ylabel('Threshold')
+plt.title('Optimal threshold vs dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='lower right')
+plt.tight_layout()
+
+
 if 'agg' in BACKEND:
     output_dir = Path('./figures')
     output_dir.mkdir(parents=True, exist_ok=True)
     for i, fig_num in enumerate(plt.get_fignums(), start=1):
         fig = plt.figure(fig_num)
         fig.savefig(output_dir / f'icann_process_v2_fig_{i}.png', dpi=300, bbox_inches='tight')
-    print(f'Backend no interactivo ({BACKEND}). Figuras guardadas en {output_dir.resolve()}')
+    print(f'Non-iteractive Backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
 else:
     plt.show()
 

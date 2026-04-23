@@ -48,7 +48,7 @@ def convert_to_sktime_format(X: np.ndarray) -> pd.DataFrame:
 
 # MiniRocket parameters
 N_KERNELS = 10000  # Default for MiniRocket
-SCORE_TYPE = "euclidean"  # 'euclidean', 'mahalanobis'
+SCORE_TYPE = "mahalanobis"  # 'euclidean', 'mahalanobis'
 
 ##################################################################
 # MINIROCKET ANOMALY DETECTOR

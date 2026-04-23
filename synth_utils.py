@@ -11,10 +11,10 @@ import pandas as pd
 
 
 N_POINTS = 10000
-WINDOW_SIZE = 500
-STEP = 50
+WINDOW_SIZE = 200
+STEP = WINDOW_SIZE // 10  # 90% overlap
 
-ANOMALY_1_RANGE = (0.30, 0.40)  # phase inversion
+ANOMALY_1_RANGE = (0.30, 0.40)  # frequency acceleration
 ANOMALY_2_RANGE = (0.70, 0.80)  # amplitude breakdown
 
 
@@ -37,7 +37,7 @@ def get_anomaly_ranges(n_points: int) -> List[Tuple[int, int, str]]:
     idx3 = int(ANOMALY_2_RANGE[0] * n_points)
     idx4 = int(ANOMALY_2_RANGE[1] * n_points)
     return [
-        (idx1, idx2, "phase_inversion"),
+        (idx1, idx2, "frequency_acceleration"),
         (idx3, idx4, "amplitude_breakdown"),
     ]
 
@@ -67,7 +67,7 @@ def generate_complex_signal(
     rng = np.random.default_rng(random_state)
     t = np.arange(n_points)
 
-    f_t = 0.02 + 0.005 * np.sin(0.002 * t)
+    f_t = 0.01 + 0.005 * np.sin(0.002 * t)
     a_t = 1.0 + 0.3 * np.cos(0.001 * t)
 
     noise = rng.normal(0.0, 0.03, n_points)
@@ -78,8 +78,9 @@ def generate_complex_signal(
         signal = a_t * np.sin(2 * np.pi * f_t * t)
 
         for start, end, anomaly_type in get_anomaly_ranges(n_points):
-            if anomaly_type == "phase_inversion":
-                signal[start:end] = -signal[start:end]
+            if anomaly_type == "frequency_acceleration":
+                #signal[start:end] = -signal[start:end]
+                signal[start:end] = a_t[start:end] * np.sin(2 * np.pi * (f_t[start:end]*2.5) * t[start:end])**2
             elif anomaly_type == "amplitude_breakdown":
                 signal[start:end] = 0.3 * np.sin(2 * np.pi * f_t[start:end] * t[start:end])
 

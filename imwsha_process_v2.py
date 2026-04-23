@@ -45,8 +45,14 @@ import pandas as pd
 from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 
-# For article graphics set font to 24 points
-plt.rcParams.update({'font.size': 18})
+BACKEND = plt.get_backend().lower()
+
+# For article graphics use large fonts on interactive backends.
+# On non-interactive backends (e.g., Agg), reduce font size and enlarge figure.
+if 'agg' in BACKEND:
+    plt.rcParams.update({'font.size': 12, 'figure.figsize': (10, 6)})
+else:
+    plt.rcParams.update({'font.size': 18})
 
 # Read data for Subject 1 (change this to use any other subject data)
 df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
@@ -90,15 +96,25 @@ tm = 1/20.
 # Create the ESN and set hyperparameters -- THESE HAVE NOT BEEN OPTIMIZED IN ANY WAY
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
+# n_states = 300
+# rho=0.9977765104808194
+# sparsity=0.01
+# Lr=0.053814290145298004
+# Win_scale=0.744831763674846
+# input_scale = 1
+# Warmup = 20
+# set_bias = True
+# ridge = 4.6801882228427845e-08
+
 n_states = 300
-rho=0.9977765104808194
+rho=0.99
 sparsity=0.01
-Lr=0.053814290145298004
-Win_scale=0.744831763674846
+Lr=0.05
+Win_scale=0.75
 input_scale = 1
 Warmup = 20
 set_bias = True
-ridge = 4.6801882228427845e-08
+ridge = 1e-06
 
 
 print('Creating ESN...')
@@ -222,6 +238,14 @@ for i in transitions[transitions].index:
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
 
+r_values = []
+auc_values = []
+sensitivity_values = []
+specificity_values = []
+precision_values = []
+f1_values = []
+threshold_values = []
+
 for r in np.arange(1,25,1):
     # Estimate the PDF with the training set
     values = np.stack(C_pdf[:,0:r])
@@ -267,6 +291,15 @@ for r in np.arange(1,25,1):
     specificity = recall_score(np.logical_not(actual_labels) , np.logical_not(logprobX_exp>th_optimal))
     precision  = precision_score(actual_labels, logprobX_exp>th_optimal)
     f1 = f1_score(actual_labels , logprobX_exp>th_optimal)
+
+    r_values.append(r)
+    auc_values.append(roc_auc)
+    sensitivity_values.append(sensitivity)
+    specificity_values.append(specificity)
+    precision_values.append(precision)
+    f1_values.append(f1)
+    threshold_values.append(th_optimal)
+
     print(f'Sensitivity: {sensitivity:.3f}, Specificity: {specificity:.3f}, Precision: {precision:.3f}, F1-score: {f1:.3f}')
 
     # Plot results for each value of r
@@ -323,4 +356,50 @@ for r in np.arange(1,25,1):
     plt.xlabel('time (s)')
     plt.ylabel('activity class')
 
-plt.show()
+    # Increase vertical gap between both subplots in each per-r figure.
+    plt.gcf().subplots_adjust(hspace=0.35)
+
+plt.figure()
+plt.subplot(2,1,1)
+plt.plot(r_values, auc_values, marker='o', linewidth=2, label='AUC')
+plt.plot(r_values, sensitivity_values, marker='o', linewidth=2, label='Sensitivity')
+plt.plot(r_values, specificity_values, marker='o', linewidth=2, label='Specificity')
+#plt.plot(r_values, precision_values, marker='o', linewidth=2, label='Precision')
+#plt.plot(r_values, f1_values, marker='o', linewidth=2, label='F1-score')
+metric_values = np.array([
+    *auc_values,
+    *sensitivity_values,
+    *specificity_values,
+#    *precision_values,
+#    *f1_values
+])
+y_min = max(0.0, metric_values.min() - 0.03)
+y_max = min(1.05, metric_values.max() + 0.02)
+if y_max - y_min < 0.05:
+    y_min = max(0.0, y_min - 0.03)
+    y_max = min(1.05, y_max + 0.03)
+plt.ylim(y_min, y_max)
+plt.xlabel('Dimensionality r')
+plt.ylabel('Score')
+plt.title('Performance metrics vs dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='lower right')
+
+plt.subplot(2,1,2)
+plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
+plt.xlabel('Dimensionality r')
+plt.ylabel('Threshold')
+plt.title('Optimal threshold vs dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='upper right')
+plt.tight_layout()
+
+if 'agg' in BACKEND:
+    output_dir = Path('./figures')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i, fig_num in enumerate(plt.get_fignums(), start=1):
+        fig = plt.figure(fig_num)
+        fig.savefig(output_dir / f'imwsha_process_v2_fig_{i}.png', dpi=300, bbox_inches='tight')
+    print(f'Non-iteractive Backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
+else:
+    plt.show()

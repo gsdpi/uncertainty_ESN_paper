@@ -272,15 +272,15 @@ def process_synthetic_esn(show_plot: bool = True):
         pred_anomaly = ~pred_normal
 
         plt.figure(figsize=(15, 5))
-        plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='Señal base')
+        plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='Base signal')
 
         colors = {
-            'phase_inversion': 'red',
+            'frequency_acceleration': 'red',
             'amplitude_breakdown': 'orange',
         }
         labels_map = {
-            'phase_inversion': 'Anomaly: Phase',
-            'amplitude_breakdown': 'Anomaly: Amplitude',
+            'frequency_acceleration': 'Anomaly: Frequency Acceleration',
+            'amplitude_breakdown': 'Anomaly: Amplitude Breakdown',
         }
 
         plotted = set()
@@ -302,7 +302,7 @@ def process_synthetic_esn(show_plot: bool = True):
             color='green',
             lw=3.4,
             alpha=0.9,
-            label='ESN: detectado normal',
+            label='ESN: normal detected',
         )
 
         signal_pred_anomaly = signal_plot.copy()
@@ -313,7 +313,7 @@ def process_synthetic_esn(show_plot: bool = True):
             color='red',
             lw=3.4,
             alpha=0.95,
-            label='ESN: detectado anómalo',
+            label='ESN: anomaly detected',
         )
 
         plt.title('Synthetic Test Signal with Anomalies (Slow Frequencies)')

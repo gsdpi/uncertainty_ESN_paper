@@ -36,8 +36,8 @@ plt.rcParams.update({'font.size': 18})
 ##################################################################
 
 # MiniRocket parameters
-N_KERNELS = 10000  # Default for MiniRocket
-SCORE_TYPE = 'euclidean' # 'euclidean', 'mahalanobis'
+N_KERNELS = 1000  # Default for MiniRocket
+SCORE_TYPE = 'mahalanobis' # 'euclidean', 'mahalanobis'
 SEGMENT_SIZE = WINDOW_LENGTH  # Segment size for MiniRocket (must be >= 9)
 
 ##################################################################
@@ -167,6 +167,7 @@ class MiniRocketAnomalyDetector:
             cov += np.eye(cov.shape[0]) * 1e-6
             try:
                 self.inv_cov = np.linalg.inv(cov)
+                print(f"Covariance matrix shape: {cov.shape}")
             except np.linalg.LinAlgError:
                 print("Warning: Covariance matrix is singular, using euclidean distance")
                 self.score_type = "euclidean"
