@@ -4,6 +4,8 @@ Utilities for synthetic slow-frequency signal dataset.
 
 from __future__ import annotations
 
+import pickle
+from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
@@ -13,6 +15,7 @@ import pandas as pd
 N_POINTS = 10000
 WINDOW_SIZE = 200
 STEP = WINDOW_SIZE // 10  # 90% overlap
+SYNTH_DATA_DIR = "synthdata"
 
 ANOMALY_1_RANGE = (0.30, 0.40)  # frequency acceleration
 ANOMALY_2_RANGE = (0.70, 0.80)  # amplitude breakdown
@@ -243,3 +246,44 @@ def build_synthetic_dataset(
             "random_seed": random_seed,
         },
     }
+
+
+def get_cached_synthetic_dataset(
+    n_points: int = N_POINTS,
+    window_size: int = WINDOW_SIZE,
+    step: int = STEP,
+    random_seed: int = 42,
+    cache_dir: str = SYNTH_DATA_DIR,
+) -> Dict[str, object]:
+    """
+    Load synthetic dataset from disk cache or create and persist it.
+
+    Returns
+    -------
+    data : dict
+        Synthetic dataset dictionary compatible with build_synthetic_dataset.
+    """
+    cache_path = Path(cache_dir)
+    cache_path.mkdir(parents=True, exist_ok=True)
+
+    cache_file = cache_path / (
+        f"synthetic_dataset_n{n_points}_w{window_size}_step{step}_seed{random_seed}.pkl"
+    )
+
+    if cache_file.exists():
+        with cache_file.open("rb") as f:
+            data = pickle.load(f)
+        print(f"Synthetic dataset loaded from cache: {cache_file}")
+        return data
+
+    data = build_synthetic_dataset(
+        n_points=n_points,
+        window_size=window_size,
+        step=step,
+        random_seed=random_seed,
+    )
+    with cache_file.open("wb") as f:
+        pickle.dump(data, f, protocol=pickle.HIGHEST_PROTOCOL)
+
+    print(f"Synthetic dataset generated and cached at: {cache_file}")
+    return data

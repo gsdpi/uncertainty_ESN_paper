@@ -32,14 +32,15 @@ plt.rcParams.update({'font.size': 18})
 
 # ESN hyperparameters
 N_STATES = 300
-RHO = 0.9977765104808194
+RHO = 0.99
 SPARSITY = 0.01
-LR = 0.053814290145298004
-WIN_SCALE = 0.744831763674846
+LR = 0.05
+WIN_SCALE = 0.75
 INPUT_SCALE = 1
 WARMUP = 20
 SET_BIAS = True
-RIDGE = 4.6801882228427845e-08
+RIDGE = 1e-6
+
 
 
 # IM-WSHA utilities (loading, cleaning, features, splits)
@@ -52,6 +53,7 @@ from imwsha_utils import (
 GLOBAL_ESN = None
 GLOBAL_RESERVOIR = None
 ESN_TRAINING_TIME = 0
+LATENT_DIMENSIONS = 15
 
 ##################################################################
 # UTILITY FUNCTIONS (ESN and metrics)
@@ -363,7 +365,7 @@ def single_subject_example(esn_model):
     results = process_subject(
         df, features, esn_model,
         subject_label='Subject 1',
-        r_values=[8],
+        r_values=[LATENT_DIMENSIONS],
         train_readout=True,
         show_roc_plot=True
     )
@@ -407,7 +409,7 @@ def process_all_subjects(esn_model):
         results = process_subject(
             df, features, esn_model,
             subject_label=subject_dir,
-            r_values=[8],
+            r_values=[LATENT_DIMENSIONS],
             train_readout=False,
         )
         for r, metrics in results.items():

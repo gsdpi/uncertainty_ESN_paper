@@ -15,7 +15,7 @@ from synth_utils import (
     N_POINTS,
     WINDOW_SIZE,
     STEP,
-    build_synthetic_dataset,
+    get_cached_synthetic_dataset,
 )
 
 # Figure configuration
@@ -103,8 +103,8 @@ def process_synthetic_knn(show_plot: bool = True):
     print(f'  WINDOW_SIZE: {WINDOW_SIZE}')
     print(f'  STEP: {STEP}')
 
-    print('\nBuilding synthetic dataset...')
-    data = build_synthetic_dataset(
+    print('\nLoading synthetic dataset from cache or building it...')
+    data = get_cached_synthetic_dataset(
         n_points=N_POINTS,
         window_size=WINDOW_SIZE,
         step=STEP,

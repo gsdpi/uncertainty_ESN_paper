@@ -96,16 +96,6 @@ tm = 1/20.
 # Create the ESN and set hyperparameters -- THESE HAVE NOT BEEN OPTIMIZED IN ANY WAY
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
-# n_states = 300
-# rho=0.9977765104808194
-# sparsity=0.01
-# Lr=0.053814290145298004
-# Win_scale=0.744831763674846
-# input_scale = 1
-# Warmup = 20
-# set_bias = True
-# ridge = 4.6801882228427845e-08
-
 n_states = 300
 rho=0.99
 sparsity=0.01
@@ -267,6 +257,12 @@ for r in np.arange(1,25,1):
     mask_ = mask_*(1-mask_transition_)
  
     actual_labels = mask_
+
+    if r == 1:
+        n_seen = int(actual_labels.sum())
+        n_unseen = len(actual_labels) - n_seen
+        print(f'Class balance: seen={n_seen} ({100*n_seen/len(actual_labels):.1f}%), unseen={n_unseen} ({100*n_unseen/len(actual_labels):.1f}%)')
+
     fpr, tpr, thresholds = roc_curve(actual_labels, logprobX_exp)
     roc_auc = auc(fpr, tpr)
 
@@ -373,23 +369,27 @@ metric_values = np.array([
 #    *precision_values,
 #    *f1_values
 ])
-y_min = max(0.0, metric_values.min() - 0.03)
-y_max = min(1.05, metric_values.max() + 0.02)
-if y_max - y_min < 0.05:
-    y_min = max(0.0, y_min - 0.03)
-    y_max = min(1.05, y_max + 0.03)
+# y_min = max(0.0, metric_values.min() - 0.03)
+# y_max = min(1.05, metric_values.max() + 0.02)
+# if y_max - y_min < 0.05:
+#     y_min = max(0.0, y_min - 0.03)
+#     y_max = min(1.05, y_max + 0.03)
+
+y_min = 0.45
+y_max = 1.05
 plt.ylim(y_min, y_max)
 plt.xlabel('Dimensionality r')
 plt.ylabel('Score')
-plt.title('Performance metrics vs dimensionality')
+plt.title('Performance and stability of the uncertainty score as a function of latent dimensionality')
 plt.grid(visible=True)
 plt.legend(loc='lower right')
 
 plt.subplot(2,1,2)
+plt.ylim(-40, 0)
 plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
 plt.xlabel('Dimensionality r')
 plt.ylabel('Threshold')
-plt.title('Optimal threshold vs dimensionality')
+plt.title('Optimal decision threshold as a function of latent dimensionality')
 plt.grid(visible=True)
 plt.legend(loc='upper right')
 plt.tight_layout()

@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 from esn_uncertainty import train_uncertainty_model, evaluate_uncertainty_on_signal, calc_metrics
-from synth_utils import N_POINTS, WINDOW_SIZE, STEP, build_synthetic_dataset
+from synth_utils import N_POINTS, WINDOW_SIZE, STEP, get_cached_synthetic_dataset
 
 # Removed in version v0.0.4
 # rpy.verbosity(0)
@@ -32,12 +32,13 @@ plt.rcParams.update({'font.size': 18})
 N_STATES = 300
 RHO = 0.99
 SPARSITY = 0.01
-LR = 0.27031482024950293
-WIN_SCALE = 0.8696730804425951
+LR = 0.27
+WIN_SCALE = 0.6
 INPUT_SCALE = 1
 WARMUP = 20
 SET_BIAS = True
-RIDGE = 5.530826061879047e-08
+RIDGE = 1e-4
+
 
 # Uncertainty parameters (from synth_utils)
 WINDOW_LENGTH = WINDOW_SIZE
@@ -121,8 +122,8 @@ def process_synthetic_esn(show_plot: bool = True):
     print(f'  STRIDE: {STRIDE}')
     print(f'  LATENT_DIMENSIONS (r): {LATENT_DIMENSIONS}')
 
-    print('\nBuilding synthetic dataset...')
-    data = build_synthetic_dataset(
+    print('\nLoading synthetic dataset from cache or building it...')
+    data = get_cached_synthetic_dataset(
         n_points=N_POINTS,
         window_size=WINDOW_LENGTH,
         step=STRIDE,

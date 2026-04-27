@@ -81,19 +81,6 @@ Y_train = np.hstack(Y).reshape(-1,1)
 
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
-# n_states = 300
-# rho=0.99 #1.270074061545781 
-# sparsity=0.01
-# Lr=0.27031482024950293
-# Win_scale=0.8696730804425951
-# Wfb_scale=.0
-# input_scale = 1
-# Washout = 0
-# Warmup = 20 #100
-# set_bias = True # input_bias for the Ridge minimization, if true bias is added to inputs
-# ridge = 5.530826061879047e-08
-
-
 n_states = 300
 rho=0.99 #1.270074061545781 
 sparsity=0.01
@@ -218,6 +205,10 @@ for i in range(len(unseen)):
     Classes_.append(np.zeros(siz))
 Classes_ = np.hstack(Classes_).reshape(-1,1)
 
+n_seen = int(Classes_.sum())
+n_unseen = len(Classes_) - n_seen
+print(f'Class balance: seen={n_seen} ({100*n_seen/len(Classes_):.1f}%), unseen={n_unseen} ({100*n_unseen/len(Classes_):.1f}%)')
+
 # Estimate the PDF with KDE for different values of
 # dimensionality r, and evaluate the classification
 # performance of the score
@@ -326,23 +317,27 @@ metric_values = np.array([
 #    *precision_values,
 #    *f1_values
 ])
-y_min = max(0.0, metric_values.min() - 0.03)
-y_max = min(1.05, metric_values.max() + 0.02)
-if y_max - y_min < 0.05:
-    y_min = max(0.0, y_min - 0.03)
-    y_max = min(1.05, y_max + 0.03)
+# y_min = max(0.0, metric_values.min() - 0.03)
+# y_max = min(1.05, metric_values.max() + 0.02)
+# if y_max - y_min < 0.05:
+#     y_min = max(0.0, y_min - 0.03)
+#     y_max = min(1.05, y_max + 0.03)
+y_min = 0.45
+y_max = 1.05
+
 plt.ylim(y_min, y_max)
 plt.xlabel('Dimensionality r')
 plt.ylabel('Score')
-plt.title('Performance metrics vs dimensionality')
+plt.title('Performance and stability of the uncertainty score as a function of latent dimensionality')
 plt.grid(visible=True)
 plt.legend(loc='lower right')
 
 plt.subplot(2,1,2)
+plt.ylim(-40, 0)
 plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
 plt.xlabel('Dimensionality r')
 plt.ylabel('Threshold')
-plt.title('Optimal threshold vs dimensionality')
+plt.title('Optimal decision threshold as a function of latent dimensionality')
 plt.grid(visible=True)
 plt.legend(loc='lower right')
 plt.tight_layout()
