@@ -36,8 +36,8 @@ plt.rcParams.update({'font.size': 18})
 ##################################################################
 
 # MiniRocket parameters
-N_KERNELS = 1000  # Default for MiniRocket
-SCORE_TYPE = 'mahalanobis' # 'euclidean', 'mahalanobis'
+N_KERNELS = 10000  # Default for MiniRocket
+SCORE_TYPE = 'euclidean'  # 'euclidean', 'mahalanobis'
 SEGMENT_SIZE = WINDOW_LENGTH  # Segment size for MiniRocket (must be >= 9)
 
 ##################################################################
