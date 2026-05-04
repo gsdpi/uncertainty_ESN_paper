@@ -29,3 +29,76 @@ It provides the necessary scripts and data to **reproduce the results** presente
 ## Acknowledgment
 
 This work is part of Grant **PID2020-115401GB-I00**, funded by **MCIN/AEI/10.13039/501100011033**.
+
+## Requirements
+
+Install the required Python packages with:
+
+```bash
+pip install -r requirements.txt
+```
+
+Key dependencies: `reservoirpy`, `numpy`, `pandas`, `scikit-learn`, `scipy`, `matplotlib`, `requests`, `openpyxl`.
+
+---
+
+## Usage
+
+The repository contains two groups of scripts with different purposes.
+
+### 1. Main method evaluation (Cases 1 & 2)
+
+These scripts reproduce the core results of the paper: they train an ESN, compute the proposed similarity-based uncertainty score, and evaluate its **stability and performance as a function of the latent dimensionality $r$**.
+
+| Script | Dataset | Test case |
+|---|---|---|
+| `icann_process_v2.py` | DATAICANN (electrical fault detection) | Case 1 |
+| `imwsha_process_v2.py` | IM-WSHA (human activity recognition) | Case 2 |
+
+Both scripts **automatically download their respective datasets** on the first run (using `requests`). You can also download and extract them manually:
+
+- **DATAICANN**: <http://hdl.handle.net/10651/53461>
+- **IM-WSHA**: <https://portals.au.edu.pk/imc/Pages/Datasets.aspx>
+
+Run them independently:
+
+```bash
+python icann_process_v2.py
+python imwsha_process_v2.py
+```
+
+Output figures (ROC curves, AUC vs. $r$, threshold vs. $r$, etc.) are saved in the `figures/` directory.
+
+---
+
+### 2. Comparative evaluation (ESN vs. baselines)
+
+These scripts evaluate the proposed ESN-based uncertainty method against three baseline approaches — **k-NN**, **MiniRocket**, and **PCA** — on all three datasets (DATAICANN, IM-WSHA, and a synthetic dataset). They can be run in **any order**.
+
+| Dataset | ESN | k-NN | MiniRocket | PCA |
+|---|---|---|---|---|
+| DATAICANN | `icann_esn.py` | `icann_knn.py` | `icann_minirocket.py` | `icann_pca.py` |
+| IM-WSHA | `imwsha_esn.py` | `imwsha_knn.py` | `imwsha_minirocket.py` | `imwsha_pca.py` |
+| Synthetic | `synth_esn.py` | `synth_knn.py` | `synth_minirocket.py` | `synth_pca.py` |
+
+Example:
+
+```bash
+python icann_esn.py
+python icann_knn.py
+# ... and so on
+```
+
+Each script saves its results to an Excel file in the working directory (e.g., `results_icann_esn.xlsx`, `results_imwsha_knn.xlsx`, `results_synth_pca.xlsx`, …).
+
+---
+
+### 3. Generate comparison figures
+
+Once the Excel result files have been produced, run:
+
+```bash
+python generate_result_graphs.py
+```
+
+This script reads all the `.xlsx` result files and generates the comparison figures used in the paper (bar charts, metric tables, etc.), covering the metrics ROC AUC, AUPRC, Recall@FPR≤1%, Sensitivity, Specificity, Precision, and F1-score.
