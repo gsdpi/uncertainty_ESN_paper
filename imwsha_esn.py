@@ -5,6 +5,7 @@
 
 import reservoirpy as rpy
 import time
+import os
 
 # Removed in version v0.0.4
 # rpy.verbosity(0)
@@ -31,28 +32,31 @@ plt.rcParams.update({'font.size': 18})
 
 # ESN hyperparameters
 N_STATES = 300
-RHO = 0.9977765104808194
+RHO = 0.99
 SPARSITY = 0.01
-LR = 0.053814290145298004
-WIN_SCALE = 0.744831763674846
+LR = 0.05
+WIN_SCALE = 0.75
 INPUT_SCALE = 1
 WARMUP = 20
 SET_BIAS = True
-RIDGE = 4.6801882228427845e-08
+RIDGE = 1e-6
 
-# Processing parameters
-NT = 7  # number of activities to train
-WINDOW_LENGTH = 140  # L
-STRIDE = 20  # S
-SAMPLING_PERIOD = 1 / 20.  # tm
+
+
+# IM-WSHA utilities (loading, cleaning, features, splits)
+from imwsha_utils import (
+    NT, WINDOW_LENGTH, STRIDE, SAMPLING_PERIOD, TRIM,
+    load_subject_df, get_features, get_train_activities, prepare_train_df
+)
 
 # Global model (reused for all subjects)
 GLOBAL_ESN = None
 GLOBAL_RESERVOIR = None
 ESN_TRAINING_TIME = 0
+LATENT_DIMENSIONS = 15
 
 ##################################################################
-# UTILITY FUNCTIONS
+# UTILITY FUNCTIONS (ESN and metrics)
 ##################################################################
 
 def create_esn_model():
@@ -156,13 +160,9 @@ def process_subject(df, features, esn_model, subject_label='Subject',
     print(f'PROCESSING: {subject_label}')
     print(f'{"="*70}\n')
     
-    # Prepare training data
-    train_activities = np.arange(1, NT + 1)
-    
-    df_train = pd.DataFrame()
-    for aa in train_activities:
-        df_tmp = df.loc[df['activity_label'] == aa]
-        df_train = pd.concat([df_train, df_tmp[150:-150]])
+    # Prepare training data using shared utilities
+    train_activities = get_train_activities()
+    df_train = prepare_train_df(df, train_activities, trim=TRIM)
     
     # Train readout if requested
     training_time = 0
@@ -229,6 +229,8 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             metrics = calc_metrics(actual_labels, logprobX_exp, plot_roc=False)
             
             roc_auc = metrics['roc_auc']
+            auprc = metrics['auprc']
+            recall_at_1pct = metrics['recall_at_1pct_fpr']
             th_optimal = metrics['threshold']
             sensitivity = metrics['sensitivity']
             specificity = metrics['specificity']
@@ -237,6 +239,8 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             
             print(f'\nMetrics:')
             print(f'  AUC: {roc_auc:.3f}')
+            print(f'  AUPRC: {auprc:.3f}')
+            print(f'  Recall @ FPR<=1%: {recall_at_1pct:.3f}')
             print(f'  Optimal threshold: {th_optimal:.3f}')
             print(f'  Sensitivity: {sensitivity:.3f}')
             print(f'  Specificity: {specificity:.3f}')
@@ -267,8 +271,8 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             'esn_training_time': training_time,
             'kde_training_time': kde_time,
             'evaluation_time': eval_time,
-            'roc_auc': roc_auc,
-            'threshold': th_optimal,
+            'roc_auc': roc_auc,            'auprc': auprc,
+            'recall_at_1pct_fpr': recall_at_1pct,            'threshold': th_optimal,
             'sensitivity': sensitivity,
             'specificity': specificity,
             'precision': precision,
@@ -349,257 +353,19 @@ def process_subject(df, features, esn_model, subject_label='Subject',
 ##################################################################
 
 
-##################################################################
-# DATA CLEANING
-##################################################################
-
-# Cleaning specifications for each subject
-SUBJECT_CLEANING = {
-    'Subject 1': [
-        (0, 190, 12),
-        (1150, 1340, 1),
-        (1340, 1580, 12),
-        (1580, 2500, 2),
-        (2500, 2680, 12),
-        (2680, 3725, 3),
-        (3725, 3950, 12),
-        (4800, 5085, 12),
-        (6000, 6130, 5),
-        (6130, 6280, 12),
-        (6280, 7285, 6),
-        (7285, 7358, 12),
-        (7358, 8500, 7),
-        (8500, 8590, 12),
-        (8590, 9745, 8),
-        (9745, 9945, 12),
-        (10900, 10807, 9),
-        (10807, 10938, 12),
-        (11810, 11940, 12),
-        #(11815, 12100, 12),
-    ],
-    'Subject 2': [
-        (0, 200, 12),
-        (1200, 1400, 12),
-        (2400, 2550, 12),
-        (3500, 3650, 3),
-        (3650, 3850, 12),
-        (3850, 4800, 4),
-        (4800, 4950, 12),
-        (4950, 6030, 5),
-        (6030, 6150, 12),
-        (6150, 7230, 6),
-        (7230, 7300, 12),
-        (7300, 8400, 7),
-        (8400, 8500, 12),
-        (8500, 9620, 8),
-        (9620, 9800, 12),
-        (9800, 10850, 9),
-        (10850, 10930, 12),
-        (10930, 11890, 10),
-        (11890, 12080, 12),
-        (12080, 12400, 11),
-    ],
-    'Subject 3': [
-        (0, 200, 12),
-        (1190, 1370, 12),
-        (2385, 2600, 12),
-        (3500, 3740, 3),
-        (3740, 3790, 12),
-        (4800, 5020, 12),
-        (5020, 6000, 5),
-        (6000, 6150, 12),
-        (6150, 7170, 6),
-        (7170, 7250, 12),
-        (7250, 8350, 7),
-        (8350, 8450, 12),
-        (8450, 9650, 8),
-        (9650, 9710, 12),
-        (9710, 10800, 9),
-        (10800, 10875, 12),
-        (10875, 11820, 10),
-        (11820, 11900, 12),
-        (11900, 12000, 11),
-    ],
-    'Subject 4': [
-        (0, 200, 12),
-        (1200, 1400, 12),
-        (2400, 2500, 12),
-        (3200, 3700, 3),
-        (3700, 3850, 12),
-        (4800, 5000, 12),
-        (5000, 6000, 5),
-        (6000, 6150, 12),
-        (6150, 7200, 6),
-        (7200, 7300, 12),
-        (7300, 8450, 7),
-        (8450, 8510, 12),
-        (8510, 9630, 8),
-        (9630, 9750, 12),
-        (9750, 10820, 9),
-        (10820, 10935, 12),
-        (10935, 11820, 10),
-        (11820, 11940, 12),
-        (11940, 12500, 11),
-    ],
-    'Subject 5': [
-        (0, 200, 12),
-        (200, 1200, 1),
-        (1200, 1500, 12),
-        (2380, 2550, 12),
-        (2550, 3715, 3),
-        (3715, 4000, 12),
-        (4765, 5100, 12),
-        (6000, 6150, 12),
-        (7200, 7300, 12),
-        (8500, 8590, 12),
-        (9600, 9765, 12),
-        (10800, 10890, 12),
-        (10890, 11400, 10),
-        (11750, 11850, 12),
-        (11850, -1, 11),  # -1 represents end of dataframe
-    ],
-    'Subject 6': [
-        (0, 200, 12),
-        (1218, 1470, 12),
-        (2390, 2530, 12),
-        (3000, 3630, 3),
-        (3630, 3800, 12),
-        (4800, 5015, 12),
-        (6050, 6200, 12),
-        (7200, 7325, 12),
-        (8400, 8485, 12),
-        (8485, 9000, 8),
-        (9650, 9770, 12),
-        (10825, 10970, 12),
-        (10970, 11500, 10),
-        (11630, 11700, 12),
-        (11700, 12300, 11),
-    ],
-    'Subject 7': [
-        (0, 220, 12),
-        (220, 1260, 1),
-        (1260, 1430, 12),
-        (2450, 2560, 12),
-        (3000, 3690, 3),
-        (3690, 3850, 12),
-        (4810, 5050, 12),
-        (6050, 6150, 12),
-        (7220, 7350, 12),
-        (8420, 8550, 12),
-        (9650, 9720, 12),
-        (10850, 11000, 12),
-        (11000, 11500, 10),
-        (11700, 11800, 12),
-        (11800, 12300, 11),
-    ],
-    'Subject 8': [
-        (0, 200, 12),
-        (1250, 1460, 12),
-        (2440, 2660, 12),
-        (2660, 3700, 3),
-        (3690, 4050, 12),
-        (4850, 5200, 12),
-        (6040, 6300, 12),
-        (7250, 7330, 12),
-        (8450, 8590, 12),
-        (8590, 9760, 8),
-        (9760, 9850, 12),
-        (10900, 11000, 12),
-        (11000, 11650, 10),
-        (11650, 11750, 12),
-        (11750, -1, 11),
-    ],
-    'Subject 9': [
-        (0, 200, 12),
-        (900, 1200, 1),
-        (1200, 1500, 12),
-        (2100, 2390, 2),
-        (2390, 2560, 12),
-        (3000, 3615, 3),
-        (3615, 3880, 12),
-        (4800, 5100, 12),
-        (6000, 6150, 12),
-        (7225, 7350, 12),
-        (8320, 8506, 12),
-        (9680, 9800, 12),
-        (10830, 10930, 12),
-        (10930, 11603, 10),
-        (11603, 11656, 12),
-        (11656, 12300, 11),
-    ],
-    'Subject 10': [
-        (0, 200, 12),
-        (1200, 1440, 12),
-        (2380, 2600, 12),
-        (2600, 3600, 3),
-        (3600, 3950, 12),
-        (4800, 5150, 12),
-        (6000, 6240, 12),
-        (7220, 7440, 12),
-        (8360, 8505, 12),
-        (9620, 9810, 12),
-        (10800, 10965, 12),
-        (11630, 11700, 12),
-        (11700, -1, 11),
-    ],
-}
-
-
-def clean_subject_data(df, subject_label):
-    """
-    Clean activity labels for a specific subject based on predefined ranges.
-    
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        DataFrame with activity data to clean
-    subject_label : str
-        Subject identifier (e.g., 'Subject 1')
-        
-    Returns
-    -------
-    df : pandas.DataFrame
-        Cleaned dataframe with corrected activity labels
-    """
-    if subject_label not in SUBJECT_CLEANING:
-        print(f'WARNING: No cleaning rules found for {subject_label}, returning unchanged data.')
-        return df
-    
-    print(f'Cleaning activity labels for {subject_label}...')
-    cleaning_rules = SUBJECT_CLEANING[subject_label]
-    
-    for start, end, label in cleaning_rules:
-        if end == -1:
-            end = len(df) - 1
-        df.loc[start:end, 'activity_label'] = label
-    
-    print(f'Cleaning completed for {subject_label}')
-    return df
-
 def single_subject_example(esn_model):
     """
-    Example for processing a single subject with manual data cleaning.
+    Example for processing a single subject using shared loading/cleaning utilities.
     """
+    dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
     print('Loading data for Subject 1...')
-    df = pd.read_csv('./IM-WSHA_Dataset/IMSHA_Dataset/Subject 1/3-imu-one subject.csv')
-    df = df.dropna(subset=['activity_label'])
-
-    # df.loc[1150:1375, 'activity_label'] = 1
-    # df.loc[2390:2510, 'activity_label'] = 2
-    # df.loc[3300:3840, 'activity_label'] = 3
-    # df.loc[6000:6300, 'activity_label'] = 5
-    # df.loc[7200:7340, 'activity_label'] = 6
-    # df.loc[8400:8570, 'activity_label'] = 7
-    # df.loc[9675:9825, 'activity_label'] = 8
-    # df.loc[10900:11010, 'activity_label'] = 9
-    df = clean_subject_data(df, 'Subject 1')
-
-    features = df.keys()[1:].tolist()
+    df = load_subject_df(dataset_path, 'Subject 1')
+    features = get_features(df)
 
     results = process_subject(
         df, features, esn_model,
         subject_label='Subject 1',
-        r_values=[8],
+        r_values=[LATENT_DIMENSIONS],
         train_readout=True,
         show_roc_plot=True
     )
@@ -625,57 +391,41 @@ def single_subject_example(esn_model):
 
 def process_all_subjects(esn_model):
     """
-    Process all subjects automatically.
-    The ESN model is created outside and trained with the first subject.
+    Process all subjects automatically using IM-WSHA utilities.
     """
-    import os, glob
-
     dataset_path = './IM-WSHA_Dataset/IMSHA_Dataset'
     subject_dirs = sorted([d for d in os.listdir(dataset_path)
                            if os.path.isdir(os.path.join(dataset_path, d)) and d.startswith('Subject')])
     print(f'Found {len(subject_dirs)} subjects')
-
     all_results = []
-
     for subject_dir in subject_dirs:
-        subject_path = os.path.join(dataset_path, subject_dir)
-        csv_files = glob.glob(os.path.join(subject_path, '*.csv'))
-        if not csv_files:
-            print(f'\nWARNING: No CSV file found for {subject_dir}, skipping...')
+        print(f'\nLoading data for {subject_dir}...')
+        try:
+            df = load_subject_df(dataset_path, subject_dir)
+        except Exception as e:
+            print(f'  ERROR: {e}')
             continue
-
-        csv_file = csv_files[0]
-        print(f'\nLoading data for {subject_dir} from {os.path.basename(csv_file)}...')
-        df = pd.read_csv(csv_file)
-        df = df.dropna(subset=['activity_label'])
-        
-        # Clean subject-specific data
-        df = clean_subject_data(df, subject_dir)
-        
-        features = df.keys()[1:].tolist()
-
+        features = get_features(df)
         results = process_subject(
             df, features, esn_model,
             subject_label=subject_dir,
-            r_values=[8],
+            r_values=[LATENT_DIMENSIONS],
             train_readout=False,
         )
-
         for r, metrics in results.items():
             all_results.append(metrics)
-
     print('\n' + '='*70)
     print('SUMMARY')
     print('='*70)
     for metrics in all_results:
         print(f"\n{metrics['subject']} (r={metrics['r']}):")
         print(f"  ROC AUC: {metrics['roc_auc']:.4f}")
+        print(f"  AUPRC: {metrics['auprc']:.4f}")
+        print(f"  Recall @ FPR<=1%: {metrics['recall_at_1pct_fpr']:.3f}")
         print(f"  Sensitivity: {metrics['sensitivity']:.3f}")
         print(f"  Specificity: {metrics['specificity']:.3f}")
         print(f"  Precision: {metrics['precision']:.3f}")
         print(f"  F1-score: {metrics['f1_score']:.3f}")
-
-    # Return results for Excel export
     return all_results
 
 
@@ -695,8 +445,8 @@ if __name__ == '__main__':
 
     # Save results to Excel (rows=metrics, columns=subjects)
     metrics_order = [
-        'roc_auc',
-        'sensitivity',
+        'roc_auc',        'auprc',
+        'recall_at_1pct_fpr',        'sensitivity',
         'specificity',
         'precision',
         'f1_score',

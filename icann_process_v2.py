@@ -48,8 +48,14 @@ import pandas as pd
 from scipy.io import loadmat
 from sklearn.model_selection import train_test_split
 
-# For article graphics set font to 24 points
-plt.rcParams.update({'font.size': 24})
+BACKEND = plt.get_backend().lower()
+
+# For article graphics use large fonts on interactive backends.
+# On non-interactive backends (e.g., Agg), reduce font size and enlarge figure.
+if 'agg' in BACKEND:
+    plt.rcParams.update({'font.size': 12, 'figure.figsize': (10, 6)})
+else:
+    plt.rcParams.update({'font.size': 24})
 
 # Read data
 PATH = './dataicann/'
@@ -67,7 +73,6 @@ train   = [2,6,3,4,5]
 
 for i in range(len(train)):
     paq = d['z'][0][train[i]][:,1]
-    paq = paq[:10000]  # use only first half of the signal for training
     X.append(paq)
     Y.append(np.repeat(ohm[i],len(paq)))
 X_train = np.hstack(X).reshape(-1,1)
@@ -77,16 +82,17 @@ Y_train = np.hstack(Y).reshape(-1,1)
 from reservoirpy.nodes import Reservoir, Ridge, Input
 
 n_states = 300
-rho=1.270074061545781 
+rho=0.99 #1.270074061545781 
 sparsity=0.01
-Lr=0.27031482024950293
-Win_scale=0.8696730804425951
+Lr=0.27
+Win_scale=0.6
 Wfb_scale=.0
 input_scale = 1
 Washout = 0
 Warmup = 20 #100
 set_bias = True # input_bias for the Ridge minimization, if true bias is added to inputs
-ridge = 5.530826061879047e-08
+ridge = 1e-04
+
 
 print('Creating ESN...')
 data = Input()
@@ -145,11 +151,11 @@ print('\nDone...')
 # STEP 3: TEST THE METHOD
 #####################################################################
 
-print('Running all signals on the ESN model...')
+print('Running signals on the ESN model...')
 
 # Get all signal in vector X
 X = []
-test   = train + [7,8,0,1]
+test   =  [7,8,0,1]
 for i in range(len(test)):
     paq = d['z'][0][test[i]][:,1]
     X.append(paq)
@@ -189,7 +195,7 @@ print('\nDone...')
 # Get classes (seen/unseen)
 
 Classes_ = []
-seen = train+[7,8]
+seen = [7,8]
 unseen = [0,1]
 for i in range(len(seen)):
     siz = len(d['z'][0][seen[i]][:,1])
@@ -199,12 +205,24 @@ for i in range(len(unseen)):
     Classes_.append(np.zeros(siz))
 Classes_ = np.hstack(Classes_).reshape(-1,1)
 
+n_seen = int(Classes_.sum())
+n_unseen = len(Classes_) - n_seen
+print(f'Class balance: seen={n_seen} ({100*n_seen/len(Classes_):.1f}%), unseen={n_unseen} ({100*n_unseen/len(Classes_):.1f}%)')
+
 # Estimate the PDF with KDE for different values of
 # dimensionality r, and evaluate the classification
 # performance of the score
 
 from sklearn.metrics import roc_curve, auc
 from sklearn.neighbors import KernelDensity
+
+r_values = []
+auc_values = []
+sensitivity_values = []
+specificity_values = []
+precision_values = []
+f1_values = []
+threshold_values = []
 
 for r in np.arange(1,21,1):
     values = np.stack(C_pdf[:,0:r])
@@ -224,7 +242,7 @@ for r in np.arange(1,21,1):
         plt.figure(1)
         plt.plot(fpr, tpr, label=f'r={r}, AUC = {roc_auc:.3f}', linewidth=2.5, marker = 'o')
         plt.grid(visible=True)
-        plt.legend()
+        plt.legend(loc='center left', bbox_to_anchor=(1.02, 0.5))
 
     th_optimal = thresholds[np.argmax(tpr - fpr)]
     print(f'Dimensions: {r}')
@@ -236,6 +254,15 @@ for r in np.arange(1,21,1):
     specificity = recall_score(np.logical_not(Classes) , np.logical_not(logprobX_exp>th_optimal))
     precision  = precision_score(Classes, logprobX_exp>th_optimal)
     f1 = f1_score(Classes , logprobX_exp>th_optimal)
+
+    r_values.append(r)
+    auc_values.append(roc_auc)
+    sensitivity_values.append(sensitivity)
+    specificity_values.append(specificity)
+    precision_values.append(precision)
+    f1_values.append(f1)
+    threshold_values.append(th_optimal)
+
     print(f' Sensitivity: {sensitivity:.3f}, Specificity: {specificity:.3f}, Precision: {precision:.3f}, F1-score: {f1:.3f}')
 
     washout = 600
@@ -276,7 +303,51 @@ for r in np.arange(1,21,1):
     plt.grid()
 
 
-plt.show()
+plt.figure()
+plt.subplot(2,1,1)
+plt.plot(r_values, auc_values, marker='o', linewidth=2, label='AUC')
+plt.plot(r_values, sensitivity_values, marker='o', linewidth=2, label='Sensitivity')
+plt.plot(r_values, specificity_values, marker='o', linewidth=2, label='Specificity')
+#plt.plot(r_values, precision_values, marker='o', linewidth=2, label='Precision')
+#plt.plot(r_values, f1_values, marker='o', linewidth=2, label='F1-score')
+metric_values = np.array([
+    *auc_values,
+    *sensitivity_values,
+    *specificity_values,
+#    *precision_values,
+#    *f1_values
+])
+
+y_min = 0.45
+y_max = 1.05
+
+plt.ylim(y_min, y_max)
+plt.xlabel('Dimensionality r')
+plt.ylabel('Score')
+plt.title('Performance and stability of the uncertainty score as a function of latent dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='lower right')
+
+plt.subplot(2,1,2)
+plt.ylim(-40, 0)
+plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
+plt.xlabel('Dimensionality r')
+plt.ylabel('Threshold')
+plt.title('Optimal decision threshold as a function of latent dimensionality')
+plt.grid(visible=True)
+plt.legend(loc='lower right')
+plt.tight_layout()
+
+
+if 'agg' in BACKEND:
+    output_dir = Path('./figures')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for i, fig_num in enumerate(plt.get_fignums(), start=1):
+        fig = plt.figure(fig_num)
+        fig.savefig(output_dir / f'icann_process_v2_fig_{i}.png', dpi=300, bbox_inches='tight')
+    print(f'Non-iteractive Backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
+else:
+    plt.show()
 
 
 

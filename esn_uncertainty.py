@@ -22,18 +22,81 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     metrics : dict
         Dictionary containing all calculated metrics:
         - roc_auc: Area under ROC curve
+        - auprc: Area under Precision-Recall curve
         - threshold: Optimal threshold (maximizes TPR - FPR)
         - sensitivity: True positive rate
         - specificity: True negative rate
         - precision: Positive predictive value
         - f1_score: F1 score
+        - recall_at_1pct_fpr: Recall when FPR <= 1%
     """
-    from sklearn.metrics import roc_curve, auc, recall_score, precision_score, f1_score
+    from sklearn.metrics import roc_curve, auc, precision_recall_curve, recall_score, precision_score, f1_score
     import matplotlib.pyplot as plt
 
+    actual_labels = np.asarray(actual_labels).astype(int)
+    scores = np.asarray(scores, dtype=float)
+
+    # Keep only finite pairs
+    finite_mask = np.isfinite(actual_labels) & np.isfinite(scores)
+    actual_labels = actual_labels[finite_mask]
+    scores = scores[finite_mask]
+
+    if actual_labels.size == 0 or np.unique(actual_labels).size < 2:
+        return {
+            'roc_auc': np.nan,
+            'auprc': np.nan,
+            'threshold': np.nan,
+            'sensitivity': np.nan,
+            'specificity': np.nan,
+            'precision': np.nan,
+            'f1_score': np.nan,
+            'recall_at_1pct_fpr': np.nan
+        }
+
+    # ROC curve metrics
     fpr, tpr, thresholds = roc_curve(actual_labels, scores)
     roc_auc = auc(fpr, tpr)
-    th_optimal = thresholds[np.argmax(tpr - fpr)]
+
+    # Auto-correct score orientation when ranking is inverted
+    if roc_auc < 0.5:
+        scores = -scores
+        fpr, tpr, thresholds = roc_curve(actual_labels, scores)
+        roc_auc = auc(fpr, tpr)
+
+    j_stat = tpr - fpr
+    candidate_idx = np.argsort(j_stat)[::-1]
+
+    th_optimal = thresholds[candidate_idx[0]]
+    if not np.isfinite(th_optimal):
+        finite_candidates = [idx for idx in candidate_idx if np.isfinite(thresholds[idx])]
+        if len(finite_candidates) > 0:
+            th_optimal = thresholds[finite_candidates[0]]
+        else:
+            th_optimal = np.median(scores)
+    
+    # Precision-Recall curve metrics
+    precision_curve, recall_curve, _ = precision_recall_curve(actual_labels, scores)
+    auprc = auc(recall_curve, precision_curve)
+    
+    # Recall @ FPR <= 1%
+    fpr_threshold = 0.01
+    mask_low_fpr = fpr <= fpr_threshold
+    if np.any(mask_low_fpr):
+        recall_at_1pct_fpr = np.max(tpr[mask_low_fpr])
+    else:
+        recall_at_1pct_fpr = 0.0
+
+    if plot_roc:
+        plt.figure()
+        plt.plot(fpr, tpr, color='darkorange', lw=2, label=f'ROC curve (area = {roc_auc:.2f})')
+        plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+        plt.xlim([0.0, 1.0])
+        plt.ylim([0.0, 1.05])
+        plt.xlabel('False Positive Rate')
+        plt.ylabel('True Positive Rate')
+        plt.title('Receiver Operating Characteristic')
+        plt.legend(loc="lower right")
+        plt.show()
 
     # Create predicted labels based on optimal threshold
     predicted_labels = (scores > th_optimal).astype(int)
@@ -47,11 +110,13 @@ def calc_metrics(actual_labels, scores, plot_roc=False):
     # Return all metrics as dictionary
     return {
         'roc_auc': roc_auc,
+        'auprc': auprc,
         'threshold': th_optimal,
         'sensitivity': sensitivity,
         'specificity': specificity,
         'precision': precision,
-        'f1_score': f1
+        'f1_score': f1,
+        'recall_at_1pct_fpr': recall_at_1pct_fpr
     }
 
 
@@ -157,7 +222,11 @@ def train_uncertainty_model(df_train, features, target_column, r, window_length,
             continue
     
     C_pdf = np.array(C_pdf)
-    print(f'\nValid windows: {len(C_pdf)} (transitions excluded, {skipped_svd} SVD failures skipped)')
+    if(transition_window > 0):
+        print(f'\nValid windows: {len(C_pdf)} (transitions excluded, {skipped_svd} SVD failures skipped)')
+    else:
+        print(f'\nValid windows: {len(C_pdf)} (no transitions excluded, {skipped_svd} SVD failures skipped)')
+
     
     if len(C_pdf) == 0:
         return None
@@ -201,7 +270,7 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     """
     
     # Process all data from complete dataframe
-    print('Computing reservoir states for all data...')
+    print('Computing reservoir states for data...')
     X_all = df[features].values
     states_all = reservoir.run(X_all)
     
