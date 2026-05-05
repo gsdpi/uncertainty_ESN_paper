@@ -317,11 +317,7 @@ metric_values = np.array([
 #    *precision_values,
 #    *f1_values
 ])
-# y_min = max(0.0, metric_values.min() - 0.03)
-# y_max = min(1.05, metric_values.max() + 0.02)
-# if y_max - y_min < 0.05:
-#     y_min = max(0.0, y_min - 0.03)
-#     y_max = min(1.05, y_max + 0.03)
+
 y_min = 0.45
 y_max = 1.05
 
