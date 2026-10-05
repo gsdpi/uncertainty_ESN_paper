@@ -40,6 +40,16 @@ pip install -r requirements.txt
 
 Key dependencies: `reservoirpy`, `numpy`, `pandas`, `scikit-learn`, `scipy`, `matplotlib`, `requests`, `openpyxl`.
 
+### Reproducibility check
+
+The ICANN ESN comparison (`icann_esn.py`) initially produced different classification results on two PCs. The results matched again after aligning the package versions, so the following versions are pinned in `requirements.txt`:
+
+- `reservoirpy==0.4.1`
+- `scikit-learn==1.6.1`
+- `numpy==2.0.2`
+- `scipy==1.13.1`
+
+For a comparable run, install dependencies from `requirements.txt` and use the same DATAICANN dataset.
 
 ## Usage
 
