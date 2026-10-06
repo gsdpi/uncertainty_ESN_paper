@@ -458,7 +458,8 @@ if __name__ == '__main__':
     df_results = pd.DataFrame(all_results)
     # Keep only metrics of interest and transpose
     df_metrics = df_results.set_index('subject')[metrics_order].T
-    df_metrics.to_excel('results_imwsha.xlsx', sheet_name='metrics')
-    print('\nResults saved to results_imwsha.xlsx')
+    os.makedirs('results', exist_ok=True)
+    df_metrics.to_excel('results/results_imwsha.xlsx', sheet_name='metrics')
+    print('\nResults saved to results/results_imwsha.xlsx')
 
     input('\nPress ENTER to close plots and exit...')

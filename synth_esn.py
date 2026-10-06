@@ -3,7 +3,9 @@
 # and epistemic uncertainty estimation
 ##################################################################
 
+import os
 import time
+from pathlib import Path
 
 import reservoirpy as rpy
 from packaging.version import Version
@@ -22,6 +24,7 @@ rpy.set_seed(42)
 
 # Figure configuration
 plt.rcParams.update({'font.size': 18})
+BACKEND = plt.get_backend().lower()
 
 
 ##################################################################
@@ -258,7 +261,8 @@ def process_synthetic_esn(show_plot: bool = True):
             'window_length', 'stride', 'r'
         ]
     ]
-    output_file = 'results_synth_esn.xlsx'
+    os.makedirs('results', exist_ok=True)
+    output_file = 'results/results_synth_esn.xlsx'
     results_df.to_excel(output_file, index=False)
     print(f'\nResults saved to {output_file}')
 
@@ -272,9 +276,6 @@ def process_synthetic_esn(show_plot: bool = True):
         pred_normal = score_plot > th_optimal
         pred_anomaly = ~pred_normal
 
-        plt.figure(figsize=(15, 5))
-        plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='Base signal')
-
         colors = {
             'frequency_acceleration': 'red',
             'amplitude_breakdown': 'orange',
@@ -284,46 +285,50 @@ def process_synthetic_esn(show_plot: bool = True):
             'amplitude_breakdown': 'Anomaly: Amplitude Breakdown',
         }
 
-        plotted = set()
-        for start, end, a_type in anomaly_ranges:
-            plt.axvspan(
-                start,
-                end,
-                color=colors.get(a_type, 'gray'),
-                alpha=0.20,
-                label=labels_map.get(a_type, a_type) if a_type not in plotted else None,
-            )
-            plotted.add(a_type)
+        def make_signal_figure(title, x_range=None, lw=3.4):
+            lo, hi = x_range if x_range else (0, n_plot)
+            hi = min(hi, n_plot)
+            fig = plt.figure(figsize=(15, 5))
+            plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='_nolegend_')
 
-        signal_pred_normal = signal_plot.copy()
-        signal_pred_normal[pred_anomaly] = np.nan
-        plt.plot(
-            np.arange(n_plot),
-            signal_pred_normal,
-            color='green',
-            lw=3.4,
-            alpha=0.9,
-            label='ESN: normal detected',
-        )
+            plotted = set()
+            for start, end, a_type in anomaly_ranges:
+                plt.axvspan(
+                    start,
+                    end,
+                    color=colors.get(a_type, 'gray'),
+                    alpha=0.20,
+                    label=labels_map.get(a_type, a_type) if a_type not in plotted else None,
+                )
+                plotted.add(a_type)
 
-        signal_pred_anomaly = signal_plot.copy()
-        signal_pred_anomaly[pred_normal] = np.nan
-        plt.plot(
-            np.arange(n_plot),
-            signal_pred_anomaly,
-            color='red',
-            lw=3.4,
-            alpha=0.95,
-            label='ESN: anomaly detected',
-        )
+            signal_pred_normal = signal_plot.copy()
+            signal_pred_normal[pred_anomaly] = np.nan
+            plt.plot(np.arange(n_plot), signal_pred_normal, color='green', lw=lw, alpha=0.9, label='_nolegend_')
 
-        plt.title('Synthetic Test Signal with Anomalies (Slow Frequencies)')
-        plt.xlabel('Sample index')
-        plt.ylabel('Signal value')
-        plt.legend()
-        plt.tight_layout()
+            signal_pred_anomaly = signal_plot.copy()
+            signal_pred_anomaly[pred_normal] = np.nan
+            plt.plot(np.arange(n_plot), signal_pred_anomaly, color='red', lw=lw, alpha=0.95, label='_nolegend_')
 
-        plt.figure(figsize=(15, 4))
+            if x_range:
+                plt.xlim(lo, hi)
+                seg = signal_plot[lo:hi]
+                margin = 0.05 * (np.nanmax(seg) - np.nanmin(seg))
+                plt.ylim(np.nanmin(seg) - margin, np.nanmax(seg) + margin)
+
+            plt.title(title)
+            plt.xlabel('Sample index')
+            plt.ylabel('Signal value')
+            handles, labels = plt.gca().get_legend_handles_labels()
+            fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.02), ncol=2)
+            fig.tight_layout(rect=(0, 0.16, 1, 1))
+            return fig
+
+        signal_figure = make_signal_figure('Synthetic Test Signal with Anomalies')
+        detail_figure_1 = make_signal_figure('Anomaly detail (samples 2500-4500)', (2500, 4500), lw=2.4)
+        detail_figure_2 = make_signal_figure('Anomaly detail (samples 6500-8500)', (6500, 8500), lw=2.4)
+
+        score_figure = plt.figure(figsize=(15, 4))
         t = np.arange(len(logprob))
         plt.plot(t, logprob, color='purple', lw=1.8)
         plt.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
@@ -333,7 +338,16 @@ def process_synthetic_esn(show_plot: bool = True):
         plt.grid(alpha=0.3)
         plt.legend()
         plt.tight_layout()
-        plt.show()
+        if 'agg' in BACKEND:
+            output_dir = Path('./figures')
+            output_dir.mkdir(parents=True, exist_ok=True)
+            signal_figure.savefig(output_dir / 'synth_esn_fig_1.png', dpi=300, bbox_inches='tight')
+            score_figure.savefig(output_dir / 'synth_esn_fig_2.png', dpi=300, bbox_inches='tight')
+            detail_figure_1.savefig(output_dir / 'synth_esn_fig_3.png', dpi=300, bbox_inches='tight')
+            detail_figure_2.savefig(output_dir / 'synth_esn_fig_4.png', dpi=300, bbox_inches='tight')
+            print(f'Non-interactive backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
+        else:
+            plt.show()
 
     print('\n' + '=' * 70)
     print('SUMMARY - SYNTHETIC ESN')

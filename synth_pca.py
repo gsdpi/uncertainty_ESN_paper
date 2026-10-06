@@ -3,6 +3,7 @@
 # anomaly detection (no ESN reservoir)
 ##################################################################
 
+import os
 import time
 from typing import Union
 
@@ -168,7 +169,8 @@ def process_synthetic_pca(show_plot: bool = True):
 
     results_df = pd.DataFrame([results])
     results_df = results_df[metrics_order + ['Method', 'dataset', 'n_components', 'n_points', 'window_size', 'step']]
-    output_file = 'results_synth_pca.xlsx'
+    os.makedirs('results', exist_ok=True)
+    output_file = 'results/results_synth_pca.xlsx'
     results_df.to_excel(output_file, index=False)
     print(f'\nResults saved to {output_file}')
 

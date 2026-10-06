@@ -426,8 +426,8 @@ def plot_synth_experiment(
 
 
 def main() -> None:
-    base_dir = Path(".").resolve()
-    output_dir = (base_dir / "figures").resolve()
+    base_dir = Path("results").resolve()
+    output_dir = (Path(".").resolve() / "figures").resolve()
 
     all_data: dict[str, dict[str, dict[str, dict[str, dict[str, float]]]]] = {
         experiment: {} for experiment in EXPERIMENTS

@@ -278,7 +278,8 @@ def process_all_signals_pca(df):
     results_df = pd.DataFrame(all_results)
     results_df = results_df.set_index('Signal')[metrics_order]
 
-    output_file = 'results_icann_pca.xlsx'
+    os.makedirs('results', exist_ok=True)
+    output_file = 'results/results_icann_pca.xlsx'
     results_df.to_excel(output_file)
     print(f'\nResults saved to {output_file}')
 

@@ -178,6 +178,7 @@ cython_debug/
 /synthdata
 /__MACOSX
 /figures
+/results
 
 *.png
 

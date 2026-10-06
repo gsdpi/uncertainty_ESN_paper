@@ -3,6 +3,7 @@
 # state (no sliding windows) as a baseline for the SVD+KDE method.
 # Detectors live in internal_detectors.py.
 ##################################################################
+import os
 import time
 
 import numpy as np
@@ -89,5 +90,6 @@ if __name__ == '__main__':
         'precision', 'f1_score', 'threshold', 'esn_training_time', 'fit_time', 'evaluation_time',
     ]
     df_results = pd.DataFrame(all_results).set_index(['Detector', 'Signal'])[metrics_order]
-    df_results.to_excel('results_icann_internal.xlsx', sheet_name='metrics')
-    print('\nResults saved to results_icann_internal.xlsx')
+    os.makedirs('results', exist_ok=True)
+    df_results.to_excel('results/results_icann_internal.xlsx', sheet_name='metrics')
+    print('\nResults saved to results/results_icann_internal.xlsx')

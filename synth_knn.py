@@ -3,6 +3,7 @@
 # anomaly detection (no ESN reservoir)
 ##################################################################
 
+import os
 import time
 
 import numpy as np
@@ -202,7 +203,8 @@ def process_synthetic_knn(show_plot: bool = True):
             'n_points', 'window_size', 'step'
         ]
     ]
-    output_file = 'results_synth_knn.xlsx'
+    os.makedirs('results', exist_ok=True)
+    output_file = 'results/results_synth_knn.xlsx'
     results_df.to_excel(output_file, index=False)
     print(f'\nResults saved to {output_file}')
 

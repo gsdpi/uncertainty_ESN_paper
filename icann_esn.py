@@ -411,8 +411,9 @@ if __name__ == '__main__':
     df_results = pd.DataFrame(all_results)
     # Keep only metrics of interest and set Signal as index
     df_metrics = df_results.set_index('Signal')[metrics_order]
-    df_metrics.to_excel('results_icann.xlsx', sheet_name='metrics')
-    print('\nResults saved to results_icann.xlsx')
+    os.makedirs('results', exist_ok=True)
+    df_metrics.to_excel('results/results_icann.xlsx', sheet_name='metrics')
+    print('\nResults saved to results/results_icann.xlsx')
 
     input('\nPress ENTER to close plots and exit...')
 

@@ -82,7 +82,6 @@ def generate_complex_signal(
 
         for start, end, anomaly_type in get_anomaly_ranges(n_points):
             if anomaly_type == "frequency_acceleration":
-                #signal[start:end] = -signal[start:end]
                 signal[start:end] = a_t[start:end] * np.sin(2 * np.pi * (f_t[start:end]*2.5) * t[start:end])**2
             elif anomaly_type == "amplitude_breakdown":
                 signal[start:end] = 0.3 * np.sin(2 * np.pi * f_t[start:end] * t[start:end])

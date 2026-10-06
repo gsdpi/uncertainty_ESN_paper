@@ -98,6 +98,7 @@ def plot_experiment(experiment: str, data: dict[str, dict], output_dir: Path) ->
         axis.grid(axis="y", linestyle="--", alpha=0.3)
 
     if experiment == "icann":
+        fig.get_layout_engine().set(rect=(0, 0, 1, 0.86))
         handles, labels = np.atleast_1d(axes)[0].get_legend_handles_labels()
         fig.legend(handles, labels, loc="upper left", ncol=3)
 
@@ -109,8 +110,8 @@ def plot_experiment(experiment: str, data: dict[str, dict], output_dir: Path) ->
 
 
 def main() -> None:
-    base_dir = Path(".").resolve()
-    output_dir = base_dir / "figures"
+    base_dir = Path("results").resolve()
+    output_dir = Path(".").resolve() / "figures"
 
     for experiment in EXPERIMENTS:
         data: dict[str, dict] = {}
