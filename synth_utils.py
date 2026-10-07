@@ -1,5 +1,9 @@
-"""
-Utilities for synthetic slow-frequency signal dataset.
+"""Generate and cache synthetic signals for anomaly-detection experiments.
+
+The dataset contains a normal training signal, a normal test signal, and a
+test signal with two injected anomaly intervals. Current ``synth_*`` scripts
+evaluate on the anomalous split; the normal test split is retained in the
+dataset but is not currently used by those scripts.
 """
 
 from __future__ import annotations
@@ -179,7 +183,10 @@ def build_synthetic_dataset(
     random_seed: int = 42,
 ) -> Dict[str, object]:
     """
-    Build synthetic train/test splits and associated DataFrames.
+    Build normal training and test signals, plus an anomalous test signal.
+
+    The anomalous signal contains frequency-acceleration and amplitude-
+    breakdown intervals. All three signals are also returned as windows.
 
     Returns
     -------
