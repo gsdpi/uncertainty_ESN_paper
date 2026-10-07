@@ -271,14 +271,14 @@ for r in np.arange(1,21,1):
     T_exp = t[washout:len(logprobX_exp)]
     logprobX_exp = logprobX_exp[washout:]
 
-    plt.figure()
-    plt.subplot(2,1,1)
+    plt.figure(figsize=(12, 9))
+    plt.subplot(3,1,1)
     plt.plot(T_exp,X_exp)
     plt.grid()
     plt.ylabel('acceleration signal')
   
     # Use the optimal threshold to decide the class
-    plt.subplot(2,1,2)
+    plt.subplot(3,1,2)
     plt.ylabel('Resistance (ohms)')
     plt.xlabel('time (s)')
     
@@ -301,6 +301,16 @@ for r in np.arange(1,21,1):
     # gray line
     plt.plot(T_exp, Y_exp, color='gray', alpha=0.3)
     plt.grid()
+
+    plt.subplot(3,1,3)
+    plt.plot(T_exp, logprobX_exp, color='purple', linewidth=1.8)
+    plt.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
+    plt.title(f'Log-likelihood score (r={r})')
+    plt.xlabel('time (s)')
+    plt.ylabel('Log-likelihood score')
+    plt.grid(alpha=0.3)
+    plt.legend()
+    plt.gcf().subplots_adjust(hspace=0.45)
 
 
 plt.figure()

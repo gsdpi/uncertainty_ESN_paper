@@ -299,8 +299,8 @@ for r in np.arange(1,25,1):
     print(f'Sensitivity: {sensitivity:.3f}, Specificity: {specificity:.3f}, Precision: {precision:.3f}, F1-score: {f1:.3f}')
 
     # Plot results for each value of r
-    plt.figure()
-    plt.subplot(2,1,1)
+    plt.figure(figsize=(12, 9))
+    plt.subplot(3,1,1)
     plt.plot(t,X[:,0:3]/np.max(np.abs(X[:,0:3]))/3)
     plt.plot(t,X[:,3:6]/np.max(np.abs(X[:,3:6]))/3+1)
     plt.plot(t,X[:,6:9]/np.max(np.abs(X[:,6:9]))/3+2)
@@ -322,7 +322,7 @@ for r in np.arange(1,25,1):
     cc = np.array([1 if i>th_optimal else 0 for i in logprobX])
     cc_exp = np.kron(cc,np.ones(S))
 
-    plt.subplot(2,1,2)
+    plt.subplot(3,1,2)
     plt.plot(t_adj,Y_adj,label='Real')
     
     # Masks to decide colors
@@ -352,8 +352,17 @@ for r in np.arange(1,25,1):
     plt.xlabel('time (s)')
     plt.ylabel('activity class')
 
-    # Increase vertical gap between both subplots in each per-r figure.
-    plt.gcf().subplots_adjust(hspace=0.35)
+    plt.subplot(3,1,3)
+    plt.plot(t_adj[:len(logprobX_exp)], logprobX_exp, color='purple', linewidth=1.8)
+    plt.xlim(0, t_adj[-1])
+    plt.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
+    plt.title(f'Log-likelihood score (r={r})')
+    plt.xlabel('time (s)')
+    plt.ylabel('Log-likelihood score')
+    plt.grid(alpha=0.3)
+    plt.legend()
+
+    plt.tight_layout()
 
 plt.figure()
 plt.subplot(2,1,1)
