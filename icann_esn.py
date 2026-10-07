@@ -192,6 +192,8 @@ def process_vibration(df, esn_model, features, r_values=[LATENT_DIMENSIONS], tra
             print('KDE model training failed (no valid windows), skipping uncertainty evaluation.')
             logprobX_exp = np.zeros(Y_out.shape[0]//STRIDE) - 1
             eval_time = 0
+            reservoir_states_time = 0
+            window_svd_kde_time = 0
             roc_auc = 0
             th_optimal = 0
             sensitivity = 0
@@ -199,8 +201,7 @@ def process_vibration(df, esn_model, features, r_values=[LATENT_DIMENSIONS], tra
             precision = 0
             f1 = 0
         else:
-            start_time = time.time()
-            logprobX_exp = evaluate_uncertainty_on_signal(
+            logprobX_exp, eval_timings = evaluate_uncertainty_on_signal(
                 df= df_test,
                 features=features,
                 reservoir=reservoir,
@@ -209,7 +210,9 @@ def process_vibration(df, esn_model, features, r_values=[LATENT_DIMENSIONS], tra
                 window_length=WINDOW_LENGTH,
                 stride=STRIDE
             )
-            eval_time = time.time() - start_time
+            reservoir_states_time = eval_timings['reservoir_states_time']
+            window_svd_kde_time = eval_timings['window_svd_kde_time']
+            eval_time = eval_timings['evaluation_time']
             
             # Calculate metrics
             # mask = 1 for normal experiments (train + test normal), 0 for anomalies
@@ -261,6 +264,8 @@ def process_vibration(df, esn_model, features, r_values=[LATENT_DIMENSIONS], tra
             'r': r,
             'esn_training_time': training_time,
             'kde_training_time': kde_time,
+            'reservoir_states_time': reservoir_states_time,
+            'window_svd_kde_time': window_svd_kde_time,
             'evaluation_time': eval_time,
             'roc_auc': roc_auc,
             'auprc': auprc,
@@ -406,6 +411,8 @@ if __name__ == '__main__':
         'threshold',
         'esn_training_time',
         'kde_training_time',
+        'reservoir_states_time',
+        'window_svd_kde_time',
         'evaluation_time'
     ]
     df_results = pd.DataFrame(all_results)

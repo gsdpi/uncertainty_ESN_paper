@@ -1,6 +1,7 @@
 
 import numpy as np
 import pandas as pd
+import time
 from sklearn.neighbors import KernelDensity
 
 
@@ -267,12 +268,18 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     -------
     logprobX_exp : numpy.ndarray
         Array with expanded log-likelihood for each sample
+    timings : dict
+        Evaluation times in seconds for reservoir states, windowing/SVD/KDE, and total
     """
-    
+    total_start = time.perf_counter()
+
     # Process all data from complete dataframe
     print('Computing reservoir states for data...')
     X_all = df[features].values
+    states_start = time.perf_counter()
     states_all = reservoir.run(X_all)
+    reservoir_states_time = time.perf_counter() - states_start
+    window_svd_kde_start = time.perf_counter()
     
     # Apply sliding window to all data
     C = []
@@ -312,10 +319,16 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     # Evaluate all samples with kernel
     print('Evaluating log-probabilities...')
     logprobX = kde_model.score_samples(C[:, 0:r])
+    window_svd_kde_time = time.perf_counter() - window_svd_kde_start
     
     # Expand score to adjust lengths
     logprobX_exp = np.kron(logprobX, np.ones(stride))
     
     print('Uncertainty evaluation completed.')
-    
-    return logprobX_exp
+    timings = {
+        'reservoir_states_time': reservoir_states_time,
+        'window_svd_kde_time': window_svd_kde_time,
+        'evaluation_time': time.perf_counter() - total_start,
+    }
+
+    return logprobX_exp, timings

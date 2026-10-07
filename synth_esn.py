@@ -178,8 +178,7 @@ def process_synthetic_esn(show_plot: bool = True):
         raise RuntimeError('KDE model training failed: no valid windows for synthetic train set.')
 
     print('\nEvaluating uncertainty on anomalous synthetic test signal...')
-    start_time = time.time()
-    logprob = evaluate_uncertainty_on_signal(
+    logprob, eval_timings = evaluate_uncertainty_on_signal(
         df=df_test,
         features=features,
         reservoir=reservoir,
@@ -188,7 +187,9 @@ def process_synthetic_esn(show_plot: bool = True):
         window_length=WINDOW_LENGTH,
         stride=STRIDE,
     )
-    eval_time = time.time() - start_time
+    reservoir_states_time = eval_timings['reservoir_states_time']
+    window_svd_kde_time = eval_timings['window_svd_kde_time']
+    eval_time = eval_timings['evaluation_time']
 
     actual_labels = df_test['label'].values[: len(logprob)]
     metrics = calc_metrics(actual_labels, logprob, plot_roc=False)
@@ -227,6 +228,8 @@ def process_synthetic_esn(show_plot: bool = True):
         'r': LATENT_DIMENSIONS,
         'esn_training_time': esn_training_time,
         'kde_training_time': kde_time,
+        'reservoir_states_time': reservoir_states_time,
+        'window_svd_kde_time': window_svd_kde_time,
         'evaluation_time': eval_time,
         'roc_auc': roc_auc,
         'auprc': auprc,
@@ -249,6 +252,8 @@ def process_synthetic_esn(show_plot: bool = True):
         'threshold',
         'esn_training_time',
         'kde_training_time',
+        'reservoir_states_time',
+        'window_svd_kde_time',
         'evaluation_time',
     ]
 

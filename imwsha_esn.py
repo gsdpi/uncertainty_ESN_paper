@@ -202,6 +202,8 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             print('KDE model training failed (no valid windows), skipping uncertainty evaluation.')
             logprobX_exp = np.zeros(Y_out.shape[0]//STRIDE) - 1
             eval_time = 0
+            reservoir_states_time = 0
+            window_svd_kde_time = 0
             roc_auc = 0
             th_optimal = 0
             sensitivity = 0
@@ -209,8 +211,7 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             precision = 0
             f1 = 0
         else:
-            start_time = time.time()
-            logprobX_exp = evaluate_uncertainty_on_signal(
+            logprobX_exp, eval_timings = evaluate_uncertainty_on_signal(
                 df=df,
                 features=features,
                 reservoir=reservoir,
@@ -219,7 +220,9 @@ def process_subject(df, features, esn_model, subject_label='Subject',
                 window_length=WINDOW_LENGTH,
                 stride=STRIDE
             )
-            eval_time = time.time() - start_time
+            reservoir_states_time = eval_timings['reservoir_states_time']
+            window_svd_kde_time = eval_timings['window_svd_kde_time']
+            eval_time = eval_timings['evaluation_time']
             
             # Calculate metrics
             mask = np.isin(df['activity_label'], train_activities).astype(int)
@@ -270,6 +273,8 @@ def process_subject(df, features, esn_model, subject_label='Subject',
             'r': r,
             'esn_training_time': training_time,
             'kde_training_time': kde_time,
+            'reservoir_states_time': reservoir_states_time,
+            'window_svd_kde_time': window_svd_kde_time,
             'evaluation_time': eval_time,
             'roc_auc': roc_auc,            'auprc': auprc,
             'recall_at_1pct_fpr': recall_at_1pct,            'threshold': th_optimal,
@@ -453,6 +458,8 @@ if __name__ == '__main__':
         'threshold',
         'esn_training_time',
         'kde_training_time',
+        'reservoir_states_time',
+        'window_svd_kde_time',
         'evaluation_time'
     ]
     df_results = pd.DataFrame(all_results)
