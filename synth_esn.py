@@ -290,15 +290,14 @@ def process_synthetic_esn(show_plot: bool = True):
             'amplitude_breakdown': 'Anomaly: Amplitude Breakdown',
         }
 
-        def make_signal_figure(title, x_range=None, lw=3.4):
+        def plot_signal(ax, title, x_range=None, lw=3.4):
             lo, hi = x_range if x_range else (0, n_plot)
             hi = min(hi, n_plot)
-            fig = plt.figure(figsize=(15, 5))
-            plt.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='_nolegend_')
+            ax.plot(signal_plot, color='gray', alpha=0.35, lw=1.0, label='_nolegend_')
 
             plotted = set()
             for start, end, a_type in anomaly_ranges:
-                plt.axvspan(
+                ax.axvspan(
                     start,
                     end,
                     color=colors.get(a_type, 'gray'),
@@ -309,45 +308,55 @@ def process_synthetic_esn(show_plot: bool = True):
 
             signal_pred_normal = signal_plot.copy()
             signal_pred_normal[pred_anomaly] = np.nan
-            plt.plot(np.arange(n_plot), signal_pred_normal, color='green', lw=lw, alpha=0.9, label='_nolegend_')
+            ax.plot(np.arange(n_plot), signal_pred_normal, color='green', lw=lw, alpha=0.9, label='_nolegend_')
 
             signal_pred_anomaly = signal_plot.copy()
             signal_pred_anomaly[pred_normal] = np.nan
-            plt.plot(np.arange(n_plot), signal_pred_anomaly, color='red', lw=lw, alpha=0.95, label='_nolegend_')
+            ax.plot(np.arange(n_plot), signal_pred_anomaly, color='red', lw=lw, alpha=0.95, label='_nolegend_')
 
             if x_range:
-                plt.xlim(lo, hi)
+                ax.set_xlim(lo, hi)
                 seg = signal_plot[lo:hi]
                 margin = 0.05 * (np.nanmax(seg) - np.nanmin(seg))
-                plt.ylim(np.nanmin(seg) - margin, np.nanmax(seg) + margin)
+                ax.set_ylim(np.nanmin(seg) - margin, np.nanmax(seg) + margin)
 
-            plt.title(title)
-            plt.xlabel('Sample index')
-            plt.ylabel('Signal value')
-            handles, labels = plt.gca().get_legend_handles_labels()
+            ax.set_title(title)
+            ax.set_xlabel('Sample index')
+            ax.set_ylabel('Signal value')
+            handles, labels = ax.get_legend_handles_labels()
+            return handles, labels
+
+        def make_signal_figure(title, x_range=None, lw=3.4):
+            fig, ax = plt.subplots(figsize=(15, 5))
+            handles, labels = plot_signal(ax, title, x_range, lw)
             fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.02), ncol=2)
             fig.tight_layout(rect=(0, 0.16, 1, 1))
             return fig
 
-        signal_figure = make_signal_figure('Synthetic Test Signal with Anomalies')
+        signal_score_figure, (signal_ax, score_ax) = plt.subplots(
+            2, 1, figsize=(15, 8), sharex=True, gridspec_kw={'height_ratios': [3, 2]}
+        )
+        handles, labels = plot_signal(signal_ax, 'Synthetic Test Signal with Anomalies')
+        signal_ax.tick_params(axis='x', labelbottom=True)
+        signal_ax.legend(handles, labels, loc='upper right', ncol=2, fontsize=12)
+
+        score_ax.plot(np.arange(n_plot), score_plot, color='purple', lw=1.8)
+        score_ax.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
+        score_ax.set_title('ESN Uncertainty Score (Higher = More Normal)')
+        score_ax.set_xlabel('Sample index')
+        score_ax.set_ylabel('Log-likelihood score')
+        score_ax.grid(alpha=0.3)
+        score_ax.legend(fontsize=12)
+        score_ax.set_xlim(0, max(n_plot - 1, 0))
+        signal_score_figure.tight_layout()
+
         detail_figure_1 = make_signal_figure('Anomaly detail (samples 2500-4500)', (2500, 4500), lw=2.4)
         detail_figure_2 = make_signal_figure('Anomaly detail (samples 6500-8500)', (6500, 8500), lw=2.4)
 
-        score_figure = plt.figure(figsize=(15, 4))
-        t = np.arange(len(logprob))
-        plt.plot(t, logprob, color='purple', lw=1.8)
-        plt.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
-        plt.title('ESN Uncertainty Score (Higher = More Normal)')
-        plt.xlabel('Sample index')
-        plt.ylabel('Log-likelihood score')
-        plt.grid(alpha=0.3)
-        plt.legend()
-        plt.tight_layout()
         if 'agg' in BACKEND:
             output_dir = Path('./figures')
             output_dir.mkdir(parents=True, exist_ok=True)
-            signal_figure.savefig(output_dir / 'synth_esn_fig_1.png', dpi=300, bbox_inches='tight')
-            score_figure.savefig(output_dir / 'synth_esn_fig_2.png', dpi=300, bbox_inches='tight')
+            signal_score_figure.savefig(output_dir / 'synth_esn_fig_1.png', dpi=300, bbox_inches='tight')
             detail_figure_1.savefig(output_dir / 'synth_esn_fig_3.png', dpi=300, bbox_inches='tight')
             detail_figure_2.savefig(output_dir / 'synth_esn_fig_4.png', dpi=300, bbox_inches='tight')
             print(f'Non-interactive backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
