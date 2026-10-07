@@ -214,7 +214,7 @@ def train_uncertainty_model(df_train, features, target_column, r, window_length,
                 skipped_svd += 1
                 continue
             
-            U, s, VT = np.linalg.svd(window_data, full_matrices=False)
+            s = np.linalg.svd(window_data, full_matrices=False, compute_uv=False)
             # Add new high-dimensional point
             C_pdf.append(s)
         except np.linalg.LinAlgError:
@@ -301,8 +301,9 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
                 C.append(np.zeros(min(window_data.shape)))
                 skipped_svd += 1
                 continue
-            
-            U, s, VT = np.linalg.svd(window_data, full_matrices=False)
+            # Save time by not computing U and VT
+            # U, s, VT = np.linalg.svd(window_data, full_matrices=False)
+            s = np.linalg.svd(window_data, full_matrices=False, compute_uv=False)
             C.append(s)
         except np.linalg.LinAlgError:
             # Use zeros for windows where SVD fails

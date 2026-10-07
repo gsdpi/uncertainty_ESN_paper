@@ -138,7 +138,7 @@ for i in rango:
     idx = np.arange(i,i+L)
     print(f"\rWindow {i} of {rango[-1]}", end='', flush=True)
     # Perform the SVD
-    U, s, VT = np.linalg.svd(states[idx,:].T, full_matrices=False)
+    s = np.linalg.svd(states[idx,:].T, full_matrices=False, compute_uv=False)
     # Add the new high-dimensional point
     T_pdf.append(t[idx[0],0])
     C_pdf.append(s)
@@ -179,7 +179,7 @@ rango = np.arange(0,Q-L,S)
 for i in rango:
     idx = np.arange(i,i+L)
     print(f"\rWindow {i} of {rango[-1]}", end='', flush=True)
-    U, s, VT = np.linalg.svd(states[idx,:].T, full_matrices=False)
+    s = np.linalg.svd(states[idx,:].T, full_matrices=False, compute_uv=False)
     T.append(t[idx[0],0])
     C.append(s)
     Y.append(np.median(Y_t[idx]))
