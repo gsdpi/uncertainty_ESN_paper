@@ -24,6 +24,8 @@ This repository contains the code used in the paper
 📄 *"Can Reservoirs Sense the Shift? Out-of-Distribution Detection in Echo State Networks"*.
 It provides the necessary scripts and data to **reproduce the results** presented in the study.
 
+**Evaluation metrics:** AUROC and AUPRC are the primary metrics used in the paper to compare discriminative performance. Depending on the algorithm and experiment, the result workbooks also report complementary measures such as recall at FPR ≤ 1%, sensitivity, specificity, precision, F1-score, the selected threshold, and training or evaluation times. These provide additional detail on performance at an operating point, behavior under a low false-positive-rate constraint, and computational cost. The paper discusses selecting an operational threshold based on an acceptable false-positive rate.
+
 ## Acknowledgment
 
 This work is part of Grant **PID2020-115401GB-I00**, funded by **MCIN/AEI/10.13039/501100011033**.
@@ -104,11 +106,11 @@ Each script saves its results to an Excel file in the working directory (e.g., `
 
 These experiments compare the proposed **window + SVD + KDE** method with a baseline that scores **instantaneous reservoir states without sliding windows**. The current non-windowed detector is Mahalanobis distance, fitted on the training reservoir states and evaluated on the test states.
 
-| Dataset   | Script               | Results file                    |
-| --------- | -------------------- | ------------------------------- |
-| DATAICANN | `icann_internal.py`  | `results_icann_internal.xlsx`   |
-| IM-WSHA   | `imwsha_internal.py` | `results_imwsha_internal.xlsx`  |
-| Synthetic | `synth_internal.py`  | `results_synth_internal.xlsx`   |
+| Dataset   | Script                 | Results file                     |
+| --------- | ---------------------- | -------------------------------- |
+| DATAICANN | `icann_internal.py`  | `results_icann_internal.xlsx`  |
+| IM-WSHA   | `imwsha_internal.py` | `results_imwsha_internal.xlsx` |
+| Synthetic | `synth_internal.py`  | `results_synth_internal.xlsx`  |
 
 Run the desired experiments independently:
 
@@ -137,3 +139,30 @@ python generate_internal_result_graphs.py
 ```
 
 This generates `comparison_internal_icann.png`, `comparison_internal_imwsha.png`, and `comparison_internal_synth.png` in `figures/`. The figures compare ROC AUC, AUPRC, and F1-score; DATAICANN results are grouped by signal configuration, and IM-WSHA results are summarized across subjects.
+
+---
+
+### 5. ICANN window-length ablation
+
+`icann_window_ablation.py` evaluates how the sliding-window length affects the proposed ESN uncertainty detector on the DATAICANN `ax` feature. The ESN, random seed, train/test split, latent dimension `r`, and stride are held fixed; only the window length changes. The stride is 200 samples (40 ms), and the tested window lengths are:
+
+| Window length (samples) | Window length (ms) |
+| ----------------------: | -----------------: |
+|                      50 |                 10 |
+|                     100 |                 20 |
+|                     250 |                 50 |
+|                     500 |                100 |
+|                    1000 |                200 |
+|                    1500 |                300 |
+|                    2000 |                400 |
+|                    3000 |                600 |
+
+The 1000-sample (200 ms) window is the current ICANN default. All window lengths are evaluated on the same prefix of the test signal so their metrics use a common number of samples.
+
+The ablation script expects the dataset to have already been downloaded; unlike the `*_process_v2.py` scripts, it does not download the data itself. Run `icann_process_v2.py` first (it downloads DATAICANN automatically if needed), or download and extract the dataset manually, so that `dataicann/dataicann.mat` exists. Then run:
+
+```bash
+python icann_window_ablation.py
+```
+
+The script saves the per-window ROC-AUC, AUPRC, F1-score, selected threshold, and evaluation length to `results/icann_window_ablation.xlsx`, and the metric curves to `figures/icann_window_ablation.png`.

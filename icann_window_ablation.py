@@ -23,6 +23,7 @@ from icann_utils import (
 )
 
 
+# Keep the ESN, split, and stride fixed so only the window length varies.
 FEATURES = ['ax']
 WINDOW_LENGTHS = [50, 100, 250, 500, 1000, 1500, 2000, 3000]
 RANDOM_SEED = 42
@@ -78,10 +79,12 @@ def run_window_ablation():
         )
         scores_by_window[window_length] = scores
 
+    # Compare every window length on the same test prefix.
     common_length = min(len(actual_labels), *(len(scores) for scores in scores_by_window.values()))
     labels_common = actual_labels[:common_length]
     result_rows = []
     for window_length, scores in scores_by_window.items():
+        # calc_metrics selects the threshold from these evaluation labels, making F1 optimistic.
         metrics = calc_metrics(labels_common, scores[:common_length], plot_roc=False)
         result_rows.append({
             'window_length_samples': window_length,
