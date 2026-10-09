@@ -280,7 +280,6 @@ for r in np.arange(1,21,1):
     # Use the optimal threshold to decide the class
     plt.subplot(3,1,2)
     plt.ylabel('Resistance (ohms)')
-    plt.xlabel('time (s)')
     
     cc = np.array([1 if i>=th_optimal else 0 for i in logprobX_exp])
 
@@ -332,7 +331,8 @@ y_min = 0.45
 y_max = 1.05
 
 plt.ylim(y_min, y_max)
-plt.xlabel('Dimensionality r')
+plt.xlim(0, 21)
+plt.xticks(range(0, 21, 5))
 plt.ylabel('Score')
 plt.title('Performance and stability of the uncertainty score as a function of latent dimensionality')
 plt.grid(visible=True)
@@ -341,6 +341,8 @@ plt.legend(loc='lower right')
 plt.subplot(2,1,2)
 plt.ylim(-40, 0)
 plt.plot(r_values, threshold_values, marker='o', linewidth=2, color='black', label='Optimal threshold')
+plt.xlim(0, 21)
+plt.xticks(range(0, 21, 5))
 plt.xlabel('Dimensionality r')
 plt.ylabel('Threshold')
 plt.title('Optimal decision threshold as a function of latent dimensionality')
@@ -358,6 +360,3 @@ if 'agg' in BACKEND:
     print(f'Non-iteractive Backend ({BACKEND}). Figures saved in {output_dir.resolve()}')
 else:
     plt.show()
-
-
-

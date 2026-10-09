@@ -349,7 +349,6 @@ for r in np.arange(1,25,1):
     ax.yaxis.set_major_locator(ticker.MaxNLocator(integer=True))
 
     plt.title('Estimated activity class')
-    plt.xlabel('time (s)')
     plt.ylabel('activity class')
 
     plt.subplot(3,1,3)
@@ -383,7 +382,6 @@ metric_values = np.array([
 y_min = 0.45
 y_max = 1.05
 plt.ylim(y_min, y_max)
-plt.xlabel('Dimensionality r')
 plt.ylabel('Score')
 plt.title('Performance and stability of the uncertainty score as a function of latent dimensionality')
 plt.grid(visible=True)
