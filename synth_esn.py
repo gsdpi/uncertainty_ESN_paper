@@ -342,7 +342,7 @@ def process_synthetic_esn(show_plot: bool = True):
 
         score_ax.plot(np.arange(n_plot), score_plot, color='purple', lw=1.8)
         score_ax.axhline(th_optimal, color='black', linestyle='--', alpha=0.7, label='Optimal threshold')
-        score_ax.set_title('ESN Uncertainty Score (Higher = More Normal)')
+        score_ax.set_title('Log-likelihood score (r=5)')
         score_ax.set_xlabel('Sample index')
         score_ax.set_ylabel('Log-likelihood score')
         score_ax.grid(alpha=0.3)

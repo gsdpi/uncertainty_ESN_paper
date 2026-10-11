@@ -291,7 +291,8 @@ def evaluate_uncertainty_on_signal(df, features, reservoir, kde_model, r, window
     skipped_svd = 0
     for i in rango_all:
         idx = np.arange(i, i + window_length)
-        print(f"\rWindow {i} of {rango_all[-1]}", end='', flush=True)
+        # Save time by not printing every window. Uncomment the following line to see progress for every window.
+        # print(f"\rWindow {i} of {rango_all[-1]}", end='', flush=True)
         
         try:
             # Check for NaN or Inf values
