@@ -28,7 +28,7 @@ It provides the necessary scripts and data to **reproduce the results** presente
 
 ## Acknowledgment
 
-This work is part of Grant **PID2020-115401GB-I00**, funded by **MCIN/AEI/10.13039/501100011033**.
+This work is part of Grants **PID2020-115401GB-I00** and **PID2025-169794NB-I00**, funded by **MCIN/AEI/10.13039/501100011033**.
 
 ## Requirements
 
